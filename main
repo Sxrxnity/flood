@@ -442,7 +442,7 @@ main:
 
 main__prologue:
 	BEGIN
-	PUSH 	$ra
+	push 	$ra
 
 main__body:
 	jal	print_welcome				# print_welcome();
@@ -451,7 +451,7 @@ main__body:
 
 main__epilogue:
 	li 	$v0, 0
-	POP 	$ra
+	pop 	$ra
 	END
 	jr	$ra					# return 0;
 
@@ -665,7 +665,7 @@ game_loop:
 
 game_loop__prologue:
 	BEGIN
-	PUSH 	$ra
+	push 	$ra
 
 game_loop__body:
 	la 	$a0, game_board 	 	        		# print_board(game_board);
@@ -701,7 +701,7 @@ game_state_lost:
 
 game_loop__epilogue:
 	li	$v0, 0
-	POP 	$ra
+	pop 	$ra
 	END
 	jr	$ra                                   			# return;
 
@@ -752,7 +752,7 @@ initialise_game:
 
 initialise_game__prologue:
 	BEGIN
-	PUSH 	$ra
+	push 	$ra
 
 initialise_game__body:
 	li 	$v0, 4
@@ -828,7 +828,7 @@ initialise_game__end:
 
 initialise_game__epilogue:
 	li 	$v0, 0
-	POP 	$ra
+	pop 	$ra
 	END
 	jr	$ra                                 	# return;
 
@@ -965,7 +965,7 @@ do_fill:
 
 do_fill__prologue:
 	BEGIN
-	PUSH 	$ra
+	push 	$ra
 
 do_fill__body:
 	la 	$a0, global_fill_in_progress            # &global_fill_in_progress
@@ -1029,7 +1029,7 @@ do_fill__game_state_lost:
 
 do_fill__epilogue:
 	li 	$v0, 0
-	POP 	$ra
+	pop 	$ra
 	END
 	jr	$ra                                     # return;
 
@@ -1050,23 +1050,72 @@ do_fill__epilogue:
 initialise_fill_in_progress:
 	# Subset:   2
 	#
-	# Frame:    [...]   <-- FILL THESE OUT!
-	# Uses:     [...]
-	# Clobbers: [...]
+	# Frame:
+	#   - $ra, $fp
 	#
-	# Locals:           <-- FILL THIS OUT!
-	#   - ...
+	# Uses:
+	#   - $a0, $a1, $a2
+	#   - $t0, $t1, $t2, $t3, $t4
 	#
-	# Structure:        <-- FILL THIS OUT!
+	# Clobbers:
+	#   - $t0, $t1, $t2, $t3, $t4
+	#
+	# Locals:
+	#   - $t0: MAX_BOARD_WIDTH
+	#   - $t1: row loop counter
+	#   - $t2: col loop counter
+	#   - $t3: board_width / board_height
+	#   - $t4: address of visited[row][col]
+	#
+	# Structure:
 	#   initialise_fill_in_progress
 	#   -> [prologue]
 	#       -> body
+	#           -> set fill_with, fill_onto, and cells_filled
+	#           -> nested row/col loop
+	#               -> zero out visited[row][col]
 	#   -> [epilogue]
 
 initialise_fill_in_progress__prologue:
+
 initialise_fill_in_progress__body:
+	sb 	$a1, FILL_WITH_OFFSET($a0)
+	sb 	$a2, FILL_ONTO_OFFSET($a0)
+	sw 	$zero, CELLS_FILLED_OFFSET($a0)
+
+	li	$t0, MAX_BOARD_WIDTH
+	li 	$t1, 0
+	li 	$t2, 0
+
+initialise_fill_in_progress__row_cond:
+	lw 	$t3, board_height
+	bge 	$t1, $t3, initialise_fill_in_progress__epilogue		# for (int row = 0; row < board_height; row++)
+
+initialise_fill_in_progress__col_cond:
+	lw 	$t3, board_width
+	bge 	$t2, $t3, initialise_fill_in_progress__row_end 		# for (int col = 0; col < board_width; col++)
+
+initialise_fill_in_progress__loop_body:
+	mul 	$t4, $t1, $t0
+	add 	$t4, $t4, $t2
+	addi 	$t4, $t4, 4
+
+	add 	$t4, $t4, $a0
+	sb  	$zero, 0($t4) 						# init_me->visited[row][col] = NOT_VISITED;
+
+	addi 	$t2, $t2, 1
+	j 	initialise_fill_in_progress__col_cond
+
+initialise_fill_in_progress__row_end:
+	li 	$t2, 0
+	addi 	$t1, $t1, 1
+	j 	initialise_fill_in_progress__row_cond
+
 initialise_fill_in_progress__epilogue:
+	li 	$v0, 0
 	jr	$ra
+
+
 
 ##############################
 ## void initialise_board(); ##
@@ -1078,23 +1127,86 @@ initialise_fill_in_progress__epilogue:
 initialise_board:
 	# Subset:   2
 	#
-	# Frame:    [...]   <-- FILL THESE OUT!
-	# Uses:     [...]
-	# Clobbers: [...]
+	# Frame:
+	#   - $ra, $fp, $s0, $s1
 	#
-	# Locals:           <-- FILL THIS OUT!
-	#   - ...
+	# Uses:
+	#   - $a0, $a1
+	#   - $v0
+	#   - $s0, $s1
+	#   - $t2, $t3, $t4, $t5, $t6
 	#
-	# Structure:        <-- FILL THIS OUT!
+	# Clobbers:
+	#   - $a0, $a1
+	#   - $v0
+	#   - $t2, $t3, $t4, $t5, $t6
+	#
+	# Locals:
+	#   - $s0: row loop counter
+	#   - $s1: col loop counter
+	#   - $t2: colour_selector_index
+	#   - $t3: address of colour_selector[colour_selector_index]
+	#   - $t4: colour loaded from selector
+	#   - $t5: base address of game_board
+	#   - $t6: offset into game_board
+	#
+	# Structure:
 	#   initialise_board
 	#   -> [prologue]
 	#       -> body
+	#           -> loop over rows
+	#               -> loop over columns
+	#                   -> generate random colour
+	#                   -> write into game_board[row][col]
 	#   -> [epilogue]
 
 initialise_board__prologue:
+	BEGIN
+	push 	$ra
+	push 	$s0
+	push 	$s1
+
 initialise_board__body:
+	li 	$s0, 0                                 			# row = 0
+
+initialise_board__row_loop:
+	bge 	$s0, MAX_BOARD_HEIGHT, initialise_board__epilogue  	# for (int row = 0 ...)
+	li 	$s1, 0                                 			# col = 0
+
+initialise_board__col_loop:
+	bge 	$s1, MAX_BOARD_WIDTH, initialise_board__end_col_loop  	# for (int col = 0 ...)
+
+	li 	$a0, 0
+	li 	$a1, NUM_COLOURS - 1
+	jal 	random_in_range                       			# int colour_selector_index = ...
+	move 	$t2, $v0
+
+	la 	$t3, colour_selector
+	add 	$t3, $t3, $t2
+	lb 	$t4, 0($t3)
+
+	la 	$t5, game_board
+	mul 	$t6, $s0, MAX_BOARD_WIDTH
+	add 	$t6, $t6, $s1
+	add 	$t5, $t5, $t6
+	sb 	$t4, 0($t5)                            			# game_board[row][col] = ...
+
+	addi 	$s1, $s1, 1                          			# col++
+	j 	initialise_board__col_loop
+
+initialise_board__end_col_loop:
+	addi 	$s0, $s0, 1                          			# row++
+	j 	initialise_board__row_loop
+
 initialise_board__epilogue:
-	jr	$ra
+	li 	$v0, 0
+	pop 	$s1
+	pop 	$s0
+	pop 	$ra
+	END
+	jr 	$ra                                    			# return;
+
+
 
 ###################################
 ## void find_optimal_solution(); ##
@@ -1106,23 +1218,96 @@ initialise_board__epilogue:
 find_optimal_solution:
 	# Subset:   2
 	#
-	# Frame:    [...]   <-- FILL THESE OUT!
-	# Uses:     [...]
-	# Clobbers: [...]
+	# Frame:
+	#   - $ra, $fp, $s0
 	#
-	# Locals:           <-- FILL THIS OUT!
-	#   - ...
+	# Uses:
+	#   - $a0, $a1, $a2
+	#   - $v0
+	#   - $s0
+	#   - $t0, $t1, $t2, $t3
 	#
-	# Structure:        <-- FILL THIS OUT!
+	# Clobbers:
+	#   - $a0, $a1, $a2
+	#   - $v0
+	#   - $t0, $t1, $t2, $t3
+	#
+	# Locals:
+	#   - $s0: address of simulated_board used in game_finished condition
+	#   - $t0: general-purpose temp (global_solver base, array address)
+	#   - $t1: offset constants
+	#   - $t2: solution_length
+	#   - $t3: null terminator ('\0')
+	#
+	# Structure:
 	#   find_optimal_solution
 	#   -> [prologue]
+	#       -> loop_init
+	#           -> call initialise_solver
+	#           -> get simulated_board addr
+	#       -> loop_condition
+	#           -> check game_finished
+	#           -> exit or continue loop
+	#       -> loop_body
+	#           -> call solve_next_step
+	#           -> repeat
 	#       -> body
+	#           -> copy optimal_solution
+	#           -> write null terminator
+	#           -> store optimal_steps
 	#   -> [epilogue]
 
 find_optimal_solution__prologue:
+	BEGIN
+	push 	$ra
+	push 	$s0
+
+find_optimal_solution__loop_init:
+	la 	$a0, global_solver
+	jal 	initialise_solver                       	# initialise_solver(&global_solver);
+
+	la   	$t0, global_solver
+	addi 	$t0, $t0, SIMULATED_BOARD_OFFSET
+	move 	$s0, $t0
+
+find_optimal_solution__loop_condition:
+	move 	$a0, $s0
+	jal 	game_finished
+	BNE 	$v0, 0, find_optimal_solution__body     	# while (!game_finished(...))
+
+find_optimal_solution__loop_body:
+	la 	$a0, global_solver
+	jal 	solve_next_step                         	# solve_next_step(&global_solver);
+	j 	find_optimal_solution__loop_condition
+
 find_optimal_solution__body:
+	la   	$t0, global_solver
+	addi 	$t0, $t0, OPTIMAL_SOLUTION_OFFSET
+	move 	$a0, $t0
+
+	la 	$a1, optimal_solution
+
+	la 	$t0, global_solver
+	lw 	$a2, SOLUTION_LENGTH_OFFSET($t0)
+	jal 	copy_mem                                	# copy_mem(...);
+
+	la 	$t0, optimal_solution
+	la 	$t1, global_solver
+	lw 	$t2, SOLUTION_LENGTH_OFFSET($t1)
+	add 	$t0, $t0, $t2
+	li 	$t3, '\0'
+	sb 	$t3, 0($t0)                              	# optimal_solution[...] = '\0';
+
+	la 	$t0, optimal_steps
+	sw 	$t2, 0($t0)                              	# optimal_steps = global_solver.solution_length;
+
 find_optimal_solution__epilogue:
-	jr	$ra
+	pop 	$s0
+	pop 	$ra
+	END
+	jr	$ra                                      	# return;
+
+
 
 ################################################################
 ## int invalid_step(struct solver *solver, int colour_index); ##
@@ -1134,23 +1319,138 @@ find_optimal_solution__epilogue:
 invalid_step:
 	# Subset:   2
 	#
-	# Frame:    [...]   <-- FILL THESE OUT!
-	# Uses:     [...]
-	# Clobbers: [...]
+	# Frame:
+	#   - $ra, $fp, $s0, $s1
 	#
-	# Locals:           <-- FILL THIS OUT!
-	#   - ...
+	# Uses:
+	#   - $a0, $a1, $a2
+	#   - $v0
+	#   - $s0, $s1
+	#   - $t0, $t1, $t2, $t3, $t4, $t5, $t6
 	#
-	# Structure:        <-- FILL THIS OUT!
+	# Clobbers:
+	#   - $a0, $a1, $a2
+	#   - $v0
+	#   - $t0, $t1, $t2, $t3, $t4, $t5, $t6
+	#
+	# Locals:
+	#   - $s0: pointer to struct solver (saved from $a0)
+	#   - $s1: colour index (saved from $a1)
+	#   - $t0: used for storing temporary values like result flags (e.g., `found`)
+	#   - $t1: loop variable `row`
+	#   - $t2: loop variable `col`
+	#   - $t3: base address or offset to board or colour_selector
+	#   - $t4: computed 2D index offset
+	#   - $t5: cell value from board or adjacent check
+	#   - $t6: selected colour value from colour_selector
+	#
+	# Structure:
 	#   invalid_step
 	#   -> [prologue]
 	#       -> body
+	#           -> early return if same colour
+	#           -> call initialise_solver_adjacent_cells
+	#           -> call find_adjacent_cells
+	#           -> nested loop over board
+	#               -> check simulated_board match and adjacency
+	#       -> return TRUE if step is invalid
+	#       -> return FALSE if step is valid
 	#   -> [epilogue]
 
 invalid_step__prologue:
+	BEGIN
+	push 	$ra
+	push 	$s0
+	push 	$s1
+	push    $s2
+
 invalid_step__body:
+	move 	$s0, $a0
+	move 	$s1, $a1
+
+	li      $t0, SIMULATED_BOARD_OFFSET
+	add     $t0, $s0, $t0
+	lb      $t1, 0($t0)                          	# solver->simulated_board[0][0]
+
+	la      $t2, colour_selector
+	add     $t2, $t2, $s1
+	lb      $t3, 0($t2)                          	# colour_selector[colour_index]
+
+	beq     $t1, $t3, invalid_step__return_true
+
+	move    $a0, $s0
+	jal     initialise_solver_adjacent_cells     	# initialise_solver_adjacent_cells(solver);
+
+	move    $a0, $s0
+	li      $a1, 0
+	li      $a2, 0
+	jal     find_adjacent_cells                 	# find_adjacent_cells(solver, 0, 0);
+
+	li      $s2, 0                               	# int found = FALSE;
+	li      $t4, 0                               	# int row = 0;
+
+invalid_step__row_cond:
+	lw      $t5, board_height
+	bge     $t4, $t5, invalid_step__check_found  	# for (int row = 0 ...)
+
+	li      $t6, 0                               	# int col = 0;
+
+invalid_step__col_cond:
+	lw      $t5, board_width
+	bge     $t6, $t5, invalid_step__next_row     	# for (int col = 0 ...)
+
+	mul     $t7, $t4, MAX_BOARD_WIDTH
+	add     $t7, $t7, $t6
+
+	li      $t8, SIMULATED_BOARD_OFFSET
+	add     $t8, $s0, $t8
+	add     $t8, $t8, $t7
+	lb      $t9, 0($t8)                          	# solver->simulated_board[row][col]
+
+	la      $t0, colour_selector
+	add     $t0, $t0, $s1
+	lb      $t1, 0($t0)                          	# colour_selector[colour_index]
+
+	bne     $t9, $t1, invalid_step__next_col
+
+	li      $t2, ADJACENT_TO_CELL_OFFSET
+	add     $t2, $s0, $t2
+	add     $t2, $t2, $t7
+	lb      $t3, 0($t2)                          	# solver->adjacent_to_cell[row][col]
+
+	bne     $t3, ADJACENT, invalid_step__next_col
+
+	li      $s2, 1                               	# found = TRUE;
+
+invalid_step__next_col:
+	addi    $t6, $t6, 1
+	j       invalid_step__col_cond
+
+invalid_step__next_row:
+	addi    $t4, $t4, 1
+	j       invalid_step__row_cond
+
+invalid_step__check_found:
+	beq     $s2, 1, invalid_step__return_false   	# if (found == TRUE)
+	j       invalid_step__return_true
+
+invalid_step__return_true:
+	li      $v0, 1                               	# return TRUE
+	j       invalid_step__epilogue
+
+invalid_step__return_false:
+	li      $v0, 0                               	# return FALSE
+	j       invalid_step__epilogue
+
 invalid_step__epilogue:
+	pop     $s2
+	pop     $s1
+	pop     $s0
+	pop	$ra
+	END
 	jr	$ra
+
+
 
 ####################################
 ## void print_optimal_solution(); ##
