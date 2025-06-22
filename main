@@ -433,12 +433,9 @@ main:
 	#
 	# Structure:
 	#   main
-	#   -> [prologue]
-	#       -> body
-	#           -> print_welcome
-	#           -> initialise_game
-	#           -> game_loop
-	#   -> [epilogue]
+	#   -> main__prologue
+	#   -> main__body
+	#   -> main__epilogue
 
 main__prologue:
 	BEGIN
@@ -482,10 +479,9 @@ print_welcome:
 	#
 	# Structure:
 	#   print_welcome
-	#   -> [prologue]
-	#       -> body
-	#	    -> print welcome messages
-	#   -> [epilogue]
+	#   -> print_welcome__prologue
+	#   -> print_welcome__body
+	#   -> print_welcome__epilogue
 
 print_welcome__prologue:
 
@@ -556,7 +552,6 @@ print_welcome__body:
 	syscall                             		# printf("\n");
 
 print_welcome__epilogue:
-	li 	$v0, 0
 	jr	$ra
 
 
@@ -589,12 +584,11 @@ in_bounds:
 	#
 	# Structure:
 	#   in_bounds
-	#   -> [prologue]
-	#       -> body
-	#           -> conditional branch to return_false / return_true
-	#       -> return_false
-	#       -> return_true
-	#   -> [epilogue]
+	#   -> in_bounds__prologue
+	#   -> in_bounds__body
+	#     -> in_bounds_return_false
+	#     -> in_bounds_return_true
+	#   -> in_bounds__epilogue
 
 in_bounds__prologue:
 
@@ -644,24 +638,15 @@ game_loop:
 	#
 	# Structure:
 	#   game_loop
-	#   -> [prologue]
-	#       -> body
-	#           -> call print_board(game_board)
-	#           -> game_state_playing_init
-	#               -> load game_state from memory
-	#           -> game_state_playing_condition
-	#               -> check if game_state == GAME_STATE_PLAYING
-	#               -> if not, jump to game_state_playing_end
-	#               -> else, call process_command()
-	#               -> repeat condition check
-	#           -> game_state_playing_end
-	#               -> if game_state == GAME_STATE_WON -> game_state_won
-	#               -> if game_state == GAME_STATE_LOST -> game_state_lost
-	#           -> game_state_won
-	#               -> print win message
-	#           -> game_state_lost
-	#               -> print loss message
-	#   -> [epilogue]
+	#   -> game_loop__prologue
+	#   -> game_loop__body
+	#     -> game_state_playing_init
+	#     -> game_state_playing_condition
+	#     -> game_state_playing_body
+	#     -> game_state_playing_end
+	#     -> game_state_won
+	#     -> game_state_lost
+	#   -> game_loop__epilogue
 
 game_loop__prologue:
 	BEGIN
@@ -700,7 +685,6 @@ game_state_lost:
 	j 	game_loop__epilogue
 
 game_loop__epilogue:
-	li	$v0, 0
 	pop 	$ra
 	END
 	jr	$ra                                   			# return;
@@ -738,17 +722,12 @@ initialise_game:
 	#
 	# Structure:
 	#   initialise_game
-	#   -> [prologue]
-	#       -> body
-	#           -> prompt for and validate width
-	#           -> prompt for and validate height
-	#           -> if either invalid: print error and restart
-	#           -> prompt for seed
-	#           -> initialize game state variables
-	#           -> call initialise_board
-	#           -> call find_optimal_solution
-	#       -> end
-	#   -> [epilogue]
+	#   -> initialise_game__prologue
+	#   -> initialise_game__body
+	#     -> print_invalid_width
+	#     -> print_invalid_height
+	#   -> initialise_game__end
+	#   -> initialise_game__epilogue
 
 initialise_game__prologue:
 	BEGIN
@@ -827,7 +806,6 @@ initialise_game__end:
 	jal 	find_optimal_solution             	# find_optimal_solution();
 
 initialise_game__epilogue:
-	li 	$v0, 0
 	pop 	$ra
 	END
 	jr	$ra                                 	# return;
@@ -869,19 +847,19 @@ game_finished:
 	#
 	# Structure:
 	#   game_finished
-	#   -> [prologue]
-	#       -> body
-	#           -> initialise loop variables
-	#           -> iterate over board rows and cols
-	#           -> compare each cell to expected colour
-	#           -> if mismatch: return FALSE
-	#           -> else: return TRUE
-	#   -> [epilogue]
+	#   -> game_finished__prologue
+	#   -> game_finished__init
+	#   -> game_finished__row_cond
+	#     -> game_finished__col_cond
+	#       -> game_finished__body
+	#     -> game_finished__col_end
+	#   -> game_finished__return_false
+	#   -> game_finished__epilogue
 
 game_finished__prologue:
 
 game_finished__init:
-	lb 	$t0, 0($a0)					# char expected_colour = board[0][0];
+    	lb  	$t0, 0($a0)					# char expected_colour = board[0][0];
 	li 	$t1, 0						# int row = 0;
 	li 	$t2, 0						# int col = 0;
 	li 	$v0, 1						# return_val = TRUE;
@@ -894,7 +872,7 @@ game_finished__row_cond:
 	bge 	$t1, $t3, game_finished__epilogue		# for (int row = 0; row < board_height; row++)
 
 game_finished__col_cond:
-	bge 	$t2, $t4, game_finished__row_end		# for (int col = 0; col < board_width; col++)
+	bge 	$t2, $t4, game_finished__col_end		# for (int col = 0; col < board_width; col++)
 
 game_finished__body:
 	mul 	$t5, $t1, $t8					# offset = row * MAX_BOARD_WIDTH;
@@ -908,7 +886,7 @@ game_finished__body:
 	addi 	$t2, $t2, 1					# col++;
 	j 	game_finished__col_cond
 
-game_finished__row_end:
+game_finished__col_end:
 	li 	$t2, 0						# col = 0;
 	addi 	$t1, $t1, 1					# row++;
 	j 	game_finished__row_cond
@@ -953,15 +931,12 @@ do_fill:
 	#
 	# Structure:
 	#   do_fill
-	#   -> [prologue]
-	#       -> body
-	#           -> compute current cell and init fill
-	#           -> call fill()
-	#           -> print fill result
-	#           -> increment steps
-	#           -> check win condition
-	#           -> check loss condition
-	#   -> [epilogue]
+	#   -> do_fill__prologue
+	#   -> do_fill__body
+	#   -> do_fill__game_state_won
+	#   -> do_fill__game_state_lost_check
+	#     -> do_fill__game_state_lost
+	#   -> do_fill__epilogue
 
 do_fill__prologue:
 	BEGIN
@@ -1028,7 +1003,6 @@ do_fill__game_state_lost:
 	sw 	$t0, game_state                         # game_state = GAME_STATE_LOST;
 
 do_fill__epilogue:
-	li 	$v0, 0
 	pop 	$ra
 	END
 	jr	$ra                                     # return;
@@ -1069,19 +1043,20 @@ initialise_fill_in_progress:
 	#
 	# Structure:
 	#   initialise_fill_in_progress
-	#   -> [prologue]
-	#       -> body
-	#           -> set fill_with, fill_onto, and cells_filled
-	#           -> nested row/col loop
-	#               -> zero out visited[row][col]
-	#   -> [epilogue]
+	#   -> initialise_fill_in_progress__prologue
+	#   -> initialise_fill_in_progress__body
+	#     -> initialise_fill_in_progress__row_cond
+	#       -> initialise_fill_in_progress__col_cond
+	#         -> initialise_fill_in_progress__loop_body
+	#       -> initialise_fill_in_progress__col_end
+	#   -> initialise_fill_in_progress__epilogue
 
 initialise_fill_in_progress__prologue:
 
 initialise_fill_in_progress__body:
-	sb 	$a1, FILL_WITH_OFFSET($a0)
-	sb 	$a2, FILL_ONTO_OFFSET($a0)
-	sw 	$zero, CELLS_FILLED_OFFSET($a0)
+	sb 	$a1, FILL_WITH_OFFSET($a0)				# init_me->fill_with = fill_with;
+	sb 	$a2, FILL_ONTO_OFFSET($a0)				# init_me->fill_onto = fill_onto;
+	sw 	$zero, CELLS_FILLED_OFFSET($a0)				# init_me->cells_filled = 0;
 
 	li	$t0, MAX_BOARD_WIDTH
 	li 	$t1, 0
@@ -1093,7 +1068,7 @@ initialise_fill_in_progress__row_cond:
 
 initialise_fill_in_progress__col_cond:
 	lw 	$t3, board_width
-	bge 	$t2, $t3, initialise_fill_in_progress__row_end 		# for (int col = 0; col < board_width; col++)
+	bge 	$t2, $t3, initialise_fill_in_progress__col_end 		# for (int col = 0; col < board_width; col++)
 
 initialise_fill_in_progress__loop_body:
 	mul 	$t4, $t1, $t0
@@ -1106,14 +1081,13 @@ initialise_fill_in_progress__loop_body:
 	addi 	$t2, $t2, 1
 	j 	initialise_fill_in_progress__col_cond
 
-initialise_fill_in_progress__row_end:
+initialise_fill_in_progress__col_end:
 	li 	$t2, 0
 	addi 	$t1, $t1, 1
 	j 	initialise_fill_in_progress__row_cond
 
 initialise_fill_in_progress__epilogue:
-	li 	$v0, 0
-	jr	$ra
+	jr	$ra							# return;
 
 
 
@@ -1152,13 +1126,12 @@ initialise_board:
 	#
 	# Structure:
 	#   initialise_board
-	#   -> [prologue]
-	#       -> body
-	#           -> loop over rows
-	#               -> loop over columns
-	#                   -> generate random colour
-	#                   -> write into game_board[row][col]
-	#   -> [epilogue]
+	#   -> initialise_board__prologue
+	#   -> initialise_board__body
+	#     -> initialise_board__row_loop
+	#       -> initialise_board__col_loop
+	#     -> initialise_board__end_col_loop
+	#   -> initialise_board__epilogue
 
 initialise_board__prologue:
 	BEGIN
@@ -1199,7 +1172,6 @@ initialise_board__end_col_loop:
 	j 	initialise_board__row_loop
 
 initialise_board__epilogue:
-	li 	$v0, 0
 	pop 	$s1
 	pop 	$s0
 	pop 	$ra
@@ -1241,21 +1213,12 @@ find_optimal_solution:
 	#
 	# Structure:
 	#   find_optimal_solution
-	#   -> [prologue]
-	#       -> loop_init
-	#           -> call initialise_solver
-	#           -> get simulated_board addr
-	#       -> loop_condition
-	#           -> check game_finished
-	#           -> exit or continue loop
-	#       -> loop_body
-	#           -> call solve_next_step
-	#           -> repeat
-	#       -> body
-	#           -> copy optimal_solution
-	#           -> write null terminator
-	#           -> store optimal_steps
-	#   -> [epilogue]
+	#   -> find_optimal_solution__prologue
+	#   -> find_optimal_solution__loop_init
+	#   -> find_optimal_solution__loop_condition
+	#   -> find_optimal_solution__loop_body
+	#   -> find_optimal_solution__body
+	#   -> find_optimal_solution__epilogue
 
 find_optimal_solution__prologue:
 	BEGIN
@@ -1346,16 +1309,16 @@ invalid_step:
 	#
 	# Structure:
 	#   invalid_step
-	#   -> [prologue]
-	#       -> body
-	#           -> early return if same colour
-	#           -> call initialise_solver_adjacent_cells
-	#           -> call find_adjacent_cells
-	#           -> nested loop over board
-	#               -> check simulated_board match and adjacency
-	#       -> return TRUE if step is invalid
-	#       -> return FALSE if step is valid
-	#   -> [epilogue]
+	#   -> invalid_step__prologue
+	#   -> invalid_step__body
+	#     -> invalid_step__row_cond
+	#       -> invalid_step__col_cond
+	#         -> invalid_step__next_col
+	#       -> invalid_step__next_row
+	#     -> invalid_step__check_found
+	#       -> invalid_step__return_false
+	#       -> invalid_step__return_true
+	#   -> invalid_step__epilogue
 
 invalid_step__prologue:
 	BEGIN
@@ -1462,23 +1425,132 @@ invalid_step__epilogue:
 print_optimal_solution:
 	# Subset:   2
 	#
-	# Frame:    [...]   <-- FILL THESE OUT!
-	# Uses:     [...]
-	# Clobbers: [...]
+	# Frame: None
 	#
-	# Locals:           <-- FILL THIS OUT!
-	#   - ...
+	# Uses:
+	#   - $a0
+	#   - $v0
+	#   - $t0, $t1, $t2, $t3, $t4
 	#
-	# Structure:        <-- FILL THIS OUT!
+	# Clobbers:
+	#   - $a0
+	#   - $v0
+	#   - $t0, $t1, $t2, $t3, $t4
+	#
+	# Locals:
+	#   - $t0: pointer to current character in optimal_solution
+	#   - $t1: index counter used to track position
+	#   - $t2: value of steps
+	#   - $t3: value of optimal_steps
+	#   - $t4: currently loaded character from string
+	#
+	#
+	# Structure:
 	#   print_optimal_solution
-	#   -> [prologue]
-	#       -> body
-	#   -> [epilogue]
+	#   -> print_optimal_solution__prologue
+	#   -> print_optimal_solution__body
+	#     -> print_optimal_solution__first_loop_init
+	#       -> print_optimal_solution__first_loop_condition
+	#         -> print_optimal_solution__first_loop_body
+	#           -> print_optimal_solution__first_loop_if
+	#           -> print_optimal_solution__first_loop_else
+	#     -> print_optimal_solution__early_return
+	#     -> print_optimal_solution__second_loop_init
+	#       -> print_optimal_solution__second_loop_cond
+	#         -> print_optimal_solution__second_loop_first_body
+	#           -> print_optimal_solution__second_loop_if
+	#           -> print_optimal_solution__second_loop_else
+	#         -> print_optimal_solution__second_loop_second_body
+	#           -> print_optimal_solution__second_loop_newline
+	#   -> print_optimal_solution__epilogue
 
 print_optimal_solution__prologue:
+
 print_optimal_solution__body:
+
+print_optimal_solution__first_loop_init:
+    	la  	$t0, optimal_solution        				# char *s = optimal_solution;
+    	li  	$v0, 11
+
+print_optimal_solution__first_loop_condition:
+    	lb  	$t4, 0($t0)
+   	beq 	$t4, 0, print_optimal_solution__second_loop_init 	# while (*s)
+
+print_optimal_solution__first_loop_body:
+    	move 	$a0, $t4
+    	syscall
+
+    	addi 	$t0, $t0, 1                 				# s++
+    	lb  	$t4, 0($t0)
+    	bne 	$t4, 0, print_optimal_solution__first_loop_if     	# if (*s)
+    	j   	print_optimal_solution__first_loop_else
+
+print_optimal_solution__first_loop_if:
+    	li  	$a0, ','
+    	syscall                          				# putchar(',');
+
+    	li  	$a0, ' '
+    	syscall                          				# putchar(' ');
+
+    	j   	print_optimal_solution__first_loop_condition
+
+print_optimal_solution__first_loop_else:
+    	li  	$a0, '\n'
+    	syscall                         				# putchar('\n');
+
+    	j   	print_optimal_solution__first_loop_condition
+
+print_optimal_solution__early_return:
+    	li  	$a0, 10
+    	syscall                         				# putchar(10);
+	j 	print_optimal_solution__epilogue
+
+print_optimal_solution__second_loop_init:
+    	la  	$t0, optimal_solution        				# s = optimal_solution;
+    	li  	$t1, 0                       				# i = 0
+    	lw  	$t2, steps
+    	lw  	$t3, optimal_steps
+    	bgt 	$t2, $t3, print_optimal_solution__early_return    	# if (steps > optimal_steps)
+
+print_optimal_solution__second_loop_cond:
+    	lb  	$t4, 0($t0)
+    	beq 	$t4, 0, print_optimal_solution__epilogue         	# while (*s)
+
+print_optimal_solution__second_loop_first_body:
+    	beq 	$t1, $t2, print_optimal_solution__second_loop_if  	# if (i == steps)
+    	j   	print_optimal_solution__second_loop_else
+
+print_optimal_solution__second_loop_if:
+    	li  	$a0, '^'
+    	syscall                         				# putchar('^');
+    	j   	print_optimal_solution__second_loop_second_body
+
+print_optimal_solution__second_loop_else:
+    	li  	$a0, ' '
+    	syscall                         				# putchar(' ');
+    	j   	print_optimal_solution__second_loop_second_body
+
+print_optimal_solution__second_loop_second_body:
+    	li  	$a0, ' '
+    	syscall                          				# putchar(' ');
+
+    	li  	$a0, ' '
+    	syscall                          				# putchar(' ');
+
+    	addi 	$t0, $t0, 1                 				# s++
+    	addi 	$t1, $t1, 1                 				# i++
+    	lb  	$t4, 0($t0)
+    	beq 	$t4, 0, print_optimal_solution__second_loop_newline 	# if (!*s)
+    	j   	print_optimal_solution__second_loop_cond
+
+print_optimal_solution__second_loop_newline:
+    	li  	$a0, '\n'
+    	syscall                          				# putchar('\n');
+    	j   	print_optimal_solution__second_loop_cond
+
 print_optimal_solution__epilogue:
-	jr	$ra
+    	jr  	$ra                          				# return;
+
 
 ##############
 ## SUBSET 3 ##
