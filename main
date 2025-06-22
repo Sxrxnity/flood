@@ -595,15 +595,13 @@ in_bounds__prologue:
 in_bounds__body:
 	bgt	$a1, $a0, in_bounds_return_false    # if (value < minimum);
 	bgt	$a0, $a2, in_bounds_return_false    # if (value > maximum);
-	j 	in_bounds_return_true
-
-in_bounds_return_false:
-	li 	$v0, 0                              # return_val = 0;
-	j	in_bounds__epilogue
 
 in_bounds_return_true:
 	li 	$v0, 1                              # return_val = 1;
 	j	in_bounds__epilogue
+
+in_bounds_return_false:
+	li 	$v0, 0                              # return_val = 0;
 
 in_bounds__epilogue:
 	jr	$ra                                 # return return_val;
@@ -640,7 +638,6 @@ game_loop:
 	#   game_loop
 	#   -> game_loop__prologue
 	#   -> game_loop__body
-	#     -> game_state_playing_init
 	#     -> game_state_playing_condition
 	#     -> game_state_playing_body
 	#     -> game_state_playing_end
@@ -655,9 +652,6 @@ game_loop__prologue:
 game_loop__body:
 	la 	$a0, game_board 	 	        		# print_board(game_board);
 	jal 	print_board
-
-game_state_playing_init:
-	lw 	$t0, game_state
 
 game_state_playing_condition:
 	lw 	$t0, game_state
@@ -724,8 +718,8 @@ initialise_game:
 	#   initialise_game
 	#   -> initialise_game__prologue
 	#   -> initialise_game__body
-	#     -> print_invalid_width
-	#     -> print_invalid_height
+	#     -> initialise_game__print_invalid_width
+	#     -> initialise_game__print_invalid_height
 	#   -> initialise_game__end
 	#   -> initialise_game__epilogue
 
@@ -736,79 +730,77 @@ initialise_game__prologue:
 initialise_game__body:
 	li 	$v0, 4
 	la 	$a0, str_initialise_game_enter_width
-	syscall                                 	# printf("Enter the grid width: ");
+	syscall                                 		# printf("Enter the grid width: ");
 
 	li 	$v0, 5
-	syscall						# scanf(" %d", &user_width);
+	syscall							# scanf(" %d", &user_width);
 	move 	$t1, $v0
-	sw 	$t1, board_width                   	# board_width = user_width;
+	sw 	$t1, board_width                   		# board_width = user_width;
 
 	move 	$a0, $t1
 	la 	$a1, MIN_BOARD_WIDTH
 	la 	$a2, MAX_BOARD_WIDTH
-	jal 	in_bounds                         	# if (!in_bounds())
+	jal 	in_bounds                         		# if (!in_bounds())
 
-	beqz 	$v0, print_invalid_width          	# printf("Invalid width!\n"); continue;
+	beqz 	$v0, initialise_game__print_invalid_width       # printf("Invalid width!\n"); continue;
 
 	li 	$v0, 4
 	la 	$a0, str_initialise_game_enter_height
-	syscall                                 	# printf("Enter the grid height: ");
+	syscall                                 		# printf("Enter the grid height: ");
 
 	li 	$v0, 5
-	syscall						# scanf(" %d", &user_height);
+	syscall							# scanf(" %d", &user_height);
 	move 	$t2, $v0
-	sw 	$t2, board_height                  	# board_height = user_height;
+	sw 	$t2, board_height                  		# board_height = user_height;
 
 	move 	$a0, $t2
 	la 	$a1, MIN_BOARD_HEIGHT
 	la 	$a2, MAX_BOARD_HEIGHT
-	jal 	in_bounds                         	# if (!in_bounds())
+	jal 	in_bounds                         		# if (!in_bounds(...))
 
-	beqz 	$v0, print_invalid_height         	# printf("Invalid height!\n"); continue;
+	beqz 	$v0, initialise_game__print_invalid_height      # printf("Invalid height!\n"); continue;
 
-	j 	initialise_game__end               	# break;
+	j 	initialise_game__end               		# break;
 
-print_invalid_width:
+initialise_game__print_invalid_width:
 	li 	$v0, 4
 	la 	$a0, str_initialise_game_invalid_width
-	syscall                                 	# printf("Invalid width!\n");
-	j	initialise_game__body              	# continue;
+	syscall                                 		# printf("Invalid width!\n");
+	j	initialise_game__body              		# continue;
 
 
-print_invalid_height:
+initialise_game__print_invalid_height:
 	li 	$v0, 4
 	la 	$a0, str_initialise_game_invalid_height
-	syscall                                 	# printf("Invalid height!\n");
-	j	initialise_game__body              	# continue;
+	syscall                                 		# printf("Invalid height!\n");
+	j	initialise_game__body              		# continue;
 
 initialise_game__end:
 	li 	$v0, 4
 	la 	$a0, str_initialise_game_enter_seed
-	syscall                                 	# printf("Enter a random seed: ");
+	syscall                                 		# printf("Enter a random seed: ");
 
 	li 	$v0, 5
-	syscall						# scanf(" %d", &user_random_seed);
-	move 	$t3, $v0
-	sw 	$t3, random_seed                   	# random_seed = user_random_seed;
+	syscall							# scanf(" %d", &user_random_seed);
+	sw 	$v0, random_seed                   		# random_seed = user_random_seed;
 
-	li 	$t4, 0
-	sw 	$t4, selected_row                  	# selected_row = 0;
-	sw 	$t4, selected_column               	# selected_column = 0;
-	sw 	$t4, steps                         	# steps = 0;
+	sw 	$zero, selected_row                  		# selected_row = 0;
+	sw 	$zero, selected_column               		# selected_column = 0;
+	sw 	$zero, steps                         		# steps = 0;
 
 	li 	$t4, EXTRA_STEPS
-	sw 	$t4, extra_steps                   	# extra_steps = EXTRA_STEPS;
+	sw 	$t4, extra_steps                   		# extra_steps = EXTRA_STEPS;
 
 	li 	$t4, GAME_STATE_PLAYING
-	sw 	$t4, game_state                    	# game_state = GAME_STATE_PLAYING;
+	sw 	$t4, game_state                    		# game_state = GAME_STATE_PLAYING;
 
-	jal 	initialise_board                  	# initialise_board();
-	jal 	find_optimal_solution             	# find_optimal_solution();
+	jal 	initialise_board                  		# initialise_board();
+	jal 	find_optimal_solution             		# find_optimal_solution();
 
 initialise_game__epilogue:
 	pop 	$ra
 	END
-	jr	$ra                                 	# return;
+	jr	$ra                                 		# return;
 
 
 
@@ -827,12 +819,12 @@ game_finished:
 	# Uses:
 	#   - $a0
 	#   - $v0
-	#   - $t0, $t1, $t2, $t3, $t4, $t5, $t6, $t7, $t8
+	#   - $t0, $t1, $t2, $t3, $t4, $t5, $t6, $t7
 	#
 	# Clobbers:
 	#   - $a0
 	#   - $v0
-	#   - $t0, $t1, $t2, $t3, $t4, $t5, $t6, $t7, $t8
+	#   - $t0, $t1, $t2, $t3, $t4, $t5, $t6, $t7
 	#
 	# Locals:
 	#   - $t0: expected_colour (board[0][0])
@@ -841,9 +833,8 @@ game_finished:
 	#   - $t3: board_height
 	#   - $t4: board_width
 	#   - $t5: offset = row * MAX_BOARD_WIDTH + col
-	#   - $t6: address of board[row][col]
-	#   - $t7: current_colour (board[row][col])
-	#   - $t8: MAX_BOARD_WIDTH
+	#   - $t6: current_colour (board[row][col])
+	#   - $t7: MAX_BOARD_WIDTH
 	#
 	# Structure:
 	#   game_finished
@@ -862,8 +853,8 @@ game_finished__init:
     	lb  	$t0, 0($a0)					# char expected_colour = board[0][0];
 	li 	$t1, 0						# int row = 0;
 	li 	$t2, 0						# int col = 0;
-	li 	$v0, 1						# return_val = TRUE;
-	li 	$t8, MAX_BOARD_WIDTH
+	li 	$v0, TRUE					# return_val = TRUE;
+	li 	$t7, MAX_BOARD_WIDTH
 
 	lw 	$t3, board_height				# load board_height
 	lw 	$t4, board_width				# load board_width
@@ -875,14 +866,12 @@ game_finished__col_cond:
 	bge 	$t2, $t4, game_finished__col_end		# for (int col = 0; col < board_width; col++)
 
 game_finished__body:
-	mul 	$t5, $t1, $t8					# offset = row * MAX_BOARD_WIDTH;
+	mul 	$t5, $t1, $t7					# offset = row * MAX_BOARD_WIDTH;
 	add 	$t5, $t5, $t2					# offset += col;
+	add 	$t5, $a0, $t5
+	lb  	$t6, 0($t5)              			# char current_colour = board[row][col]
 
-	move 	$t6, $a0
-	add 	$t6, $t6, $t5
-	lb  	$t7, 0($t6)              			# char current_colour = board[row][col]
-
-	bne 	$t0, $t7, game_finished__return_false		# if (board[row][col] != expected_colour);
+	bne 	$t0, $t6, game_finished__return_false		# if (board[row][col] != expected_colour);
 	addi 	$t2, $t2, 1					# col++;
 	j 	game_finished__col_cond
 
@@ -892,7 +881,7 @@ game_finished__col_end:
 	j 	game_finished__row_cond
 
 game_finished__return_false:
-	li 	$v0, 0						# return_val = FALSE;
+	li 	$v0, FALSE					# return_val = FALSE;
 
 game_finished__epilogue:
 	jr	$ra						# return return_val;
@@ -944,16 +933,16 @@ do_fill__prologue:
 
 do_fill__body:
 	la 	$a0, global_fill_in_progress            # &global_fill_in_progress
-
 	lw   	$t0, selected_row
 	lw   	$t1, selected_column
 	li   	$t2, MAX_BOARD_WIDTH
+
 	mul  	$t3, $t0, $t2
 	add  	$t3, $t3, $t1
 	la   	$t4, game_board
 	add  	$t3, $t3, $t4
-	lb   	$a1, 0($t3)                             # game_board[selected_row][selected_column]
 
+	lb   	$a1, 0($t3)                             # game_board[selected_row][selected_column]
 	lb 	$a2, game_board                         # game_board[0][0]
 	jal 	initialise_fill_in_progress             # initialise_fill_in_progress(...);
 
@@ -981,7 +970,7 @@ do_fill__body:
 
 	la 	$a0, game_board
 	jal 	game_finished
-	beq 	$v0, 1, do_fill__game_state_won		# if (game_finished(game_board))
+	beq 	$v0, TRUE, do_fill__game_state_won	# if (game_finished(game_board))
 
 	j 	do_fill__game_state_lost_check
 
@@ -1059,31 +1048,31 @@ initialise_fill_in_progress__body:
 	sw 	$zero, CELLS_FILLED_OFFSET($a0)				# init_me->cells_filled = 0;
 
 	li	$t0, MAX_BOARD_WIDTH
-	li 	$t1, 0
-	li 	$t2, 0
+	li 	$t1, 0							# int row = 0;
+	li 	$t2, 0							# int col = 0;
 
 initialise_fill_in_progress__row_cond:
 	lw 	$t3, board_height
-	bge 	$t1, $t3, initialise_fill_in_progress__epilogue		# for (int row = 0; row < board_height; row++)
+	bge 	$t1, $t3, initialise_fill_in_progress__epilogue		# for (int row = 0 ...)
 
 initialise_fill_in_progress__col_cond:
 	lw 	$t3, board_width
-	bge 	$t2, $t3, initialise_fill_in_progress__col_end 		# for (int col = 0; col < board_width; col++)
+	bge 	$t2, $t3, initialise_fill_in_progress__col_end 		# for (int col = 0 ...)
 
 initialise_fill_in_progress__loop_body:
 	mul 	$t4, $t1, $t0
 	add 	$t4, $t4, $t2
-	addi 	$t4, $t4, 4
+	addi 	$t4, $t4, VISITED_OFFSET
 
 	add 	$t4, $t4, $a0
 	sb  	$zero, 0($t4) 						# init_me->visited[row][col] = NOT_VISITED;
 
-	addi 	$t2, $t2, 1
+	addi 	$t2, $t2, 1						# col++;
 	j 	initialise_fill_in_progress__col_cond
 
 initialise_fill_in_progress__col_end:
 	li 	$t2, 0
-	addi 	$t1, $t1, 1
+	addi 	$t1, $t1, 1						# row++;
 	j 	initialise_fill_in_progress__row_cond
 
 initialise_fill_in_progress__epilogue:
@@ -1108,21 +1097,21 @@ initialise_board:
 	#   - $a0, $a1
 	#   - $v0
 	#   - $s0, $s1
-	#   - $t2, $t3, $t4, $t5, $t6
+	#   - $t0, $t1, $t2, $t3, $t4
 	#
 	# Clobbers:
 	#   - $a0, $a1
 	#   - $v0
-	#   - $t2, $t3, $t4, $t5, $t6
+	#   - $t0, $t1, $t2, $t3, $t4
 	#
 	# Locals:
 	#   - $s0: row loop counter
 	#   - $s1: col loop counter
-	#   - $t2: colour_selector_index
-	#   - $t3: address of colour_selector[colour_selector_index]
-	#   - $t4: colour loaded from selector
-	#   - $t5: base address of game_board
-	#   - $t6: offset into game_board
+	#   - $t0: colour_selector_index
+	#   - $t1: address of colour_selector[colour_selector_index]
+	#   - $t2: colour loaded from selector
+	#   - $t3: base address of game_board
+	#   - $t4: offset into game_board
 	#
 	# Structure:
 	#   initialise_board
@@ -1152,17 +1141,16 @@ initialise_board__col_loop:
 	li 	$a0, 0
 	li 	$a1, NUM_COLOURS - 1
 	jal 	random_in_range                       			# int colour_selector_index = ...
-	move 	$t2, $v0
 
-	la 	$t3, colour_selector
-	add 	$t3, $t3, $t2
-	lb 	$t4, 0($t3)
+	la 	$t1, colour_selector
+	add 	$t1, $t1, $v0
+	lb 	$t2, 0($t1)
 
-	la 	$t5, game_board
-	mul 	$t6, $s0, MAX_BOARD_WIDTH
-	add 	$t6, $t6, $s1
-	add 	$t5, $t5, $t6
-	sb 	$t4, 0($t5)                            			# game_board[row][col] = ...
+	la 	$t3, game_board
+	mul 	$t4, $s0, MAX_BOARD_WIDTH
+	add 	$t4, $t4, $s1
+	add 	$t3, $t3, $t4
+	sb 	$t2, 0($t3)                            			# game_board[row][col] = ...
 
 	addi 	$s1, $s1, 1                          			# col++
 	j 	initialise_board__col_loop
@@ -1230,13 +1218,12 @@ find_optimal_solution__loop_init:
 	jal 	initialise_solver                       	# initialise_solver(&global_solver);
 
 	la   	$t0, global_solver
-	addi 	$t0, $t0, SIMULATED_BOARD_OFFSET
-	move 	$s0, $t0
+	addi 	$s0, $t0, SIMULATED_BOARD_OFFSET
 
 find_optimal_solution__loop_condition:
 	move 	$a0, $s0
 	jal 	game_finished
-	BNE 	$v0, 0, find_optimal_solution__body     	# while (!game_finished(...))
+	BNE 	$v0, FALSE, find_optimal_solution__body     	# while (!game_finished(...))
 
 find_optimal_solution__loop_body:
 	la 	$a0, global_solver
@@ -1245,12 +1232,8 @@ find_optimal_solution__loop_body:
 
 find_optimal_solution__body:
 	la   	$t0, global_solver
-	addi 	$t0, $t0, OPTIMAL_SOLUTION_OFFSET
-	move 	$a0, $t0
-
+	addi 	$a0, $t0, OPTIMAL_SOLUTION_OFFSET
 	la 	$a1, optimal_solution
-
-	la 	$t0, global_solver
 	lw 	$a2, SOLUTION_LENGTH_OFFSET($t0)
 	jal 	copy_mem                                	# copy_mem(...);
 
@@ -1261,8 +1244,7 @@ find_optimal_solution__body:
 	li 	$t3, '\0'
 	sb 	$t3, 0($t0)                              	# optimal_solution[...] = '\0';
 
-	la 	$t0, optimal_steps
-	sw 	$t2, 0($t0)                              	# optimal_steps = global_solver.solution_length;
+	sw 	$t2, optimal_steps                             	# optimal_steps = global_solver.solution_length;
 
 find_optimal_solution__epilogue:
 	pop 	$s0
@@ -1333,34 +1315,34 @@ invalid_step__body:
 
 	li      $t0, SIMULATED_BOARD_OFFSET
 	add     $t0, $s0, $t0
-	lb      $t1, 0($t0)                          	# solver->simulated_board[0][0]
+	lb      $t1, 0($t0)                          		# solver->simulated_board[0][0]
 
 	la      $t2, colour_selector
 	add     $t2, $t2, $s1
-	lb      $t3, 0($t2)                          	# colour_selector[colour_index]
+	lb      $t3, 0($t2)                          		# colour_selector[colour_index]
 
 	beq     $t1, $t3, invalid_step__return_true
 
 	move    $a0, $s0
-	jal     initialise_solver_adjacent_cells     	# initialise_solver_adjacent_cells(solver);
+	jal     initialise_solver_adjacent_cells     		# initialise_solver_adjacent_cells(solver);
 
 	move    $a0, $s0
 	li      $a1, 0
 	li      $a2, 0
-	jal     find_adjacent_cells                 	# find_adjacent_cells(solver, 0, 0);
+	jal     find_adjacent_cells                 		# find_adjacent_cells(solver, 0, 0);
 
-	li      $s2, 0                               	# int found = FALSE;
-	li      $t4, 0                               	# int row = 0;
+	li      $s2, FALSE                              	# int found = FALSE;
+	li      $t4, 0                               		# int row = 0;
 
 invalid_step__row_cond:
 	lw      $t5, board_height
-	bge     $t4, $t5, invalid_step__check_found  	# for (int row = 0 ...)
+	bge     $t4, $t5, invalid_step__check_found  		# for (int row = 0 ...)
 
-	li      $t6, 0                               	# int col = 0;
+	li      $t6, 0                               		# int col = 0;
 
 invalid_step__col_cond:
 	lw      $t5, board_width
-	bge     $t6, $t5, invalid_step__next_row     	# for (int col = 0 ...)
+	bge     $t6, $t5, invalid_step__next_row     		# for (int col = 0 ...)
 
 	mul     $t7, $t4, MAX_BOARD_WIDTH
 	add     $t7, $t7, $t6
@@ -1368,41 +1350,41 @@ invalid_step__col_cond:
 	li      $t8, SIMULATED_BOARD_OFFSET
 	add     $t8, $s0, $t8
 	add     $t8, $t8, $t7
-	lb      $t9, 0($t8)                          	# solver->simulated_board[row][col]
+	lb      $t9, 0($t8)                          		# solver->simulated_board[row][col]
 
 	la      $t0, colour_selector
 	add     $t0, $t0, $s1
-	lb      $t1, 0($t0)                          	# colour_selector[colour_index]
+	lb      $t1, 0($t0)                          		# colour_selector[colour_index]
 
 	bne     $t9, $t1, invalid_step__next_col
 
 	li      $t2, ADJACENT_TO_CELL_OFFSET
 	add     $t2, $s0, $t2
 	add     $t2, $t2, $t7
-	lb      $t3, 0($t2)                          	# solver->adjacent_to_cell[row][col]
+	lb      $t3, 0($t2)                          		# solver->adjacent_to_cell[row][col]
 
 	bne     $t3, ADJACENT, invalid_step__next_col
 
-	li      $s2, 1                               	# found = TRUE;
+	li      $s2, TRUE                               	# found = TRUE;
 
 invalid_step__next_col:
-	addi    $t6, $t6, 1
+	addi    $t6, $t6, 1					# col++;
 	j       invalid_step__col_cond
 
 invalid_step__next_row:
-	addi    $t4, $t4, 1
+	addi    $t4, $t4, 1					# row++;
 	j       invalid_step__row_cond
 
 invalid_step__check_found:
-	beq     $s2, 1, invalid_step__return_false   	# if (found == TRUE)
+	beq     $s2, TRUE, invalid_step__return_false   	# if (found == TRUE)
 	j       invalid_step__return_true
 
 invalid_step__return_true:
-	li      $v0, 1                               	# return TRUE
+	li      $v0, 1                               		# return TRUE
 	j       invalid_step__epilogue
 
 invalid_step__return_false:
-	li      $v0, 0                               	# return FALSE
+	li      $v0, 0                               		# return FALSE
 	j       invalid_step__epilogue
 
 invalid_step__epilogue:
@@ -1480,7 +1462,7 @@ print_optimal_solution__first_loop_body:
     	move 	$a0, $t4
     	syscall
 
-    	addi 	$t0, $t0, 1                 				# s++
+    	addi 	$t0, $t0, 1                 				# s++;
     	lb  	$t4, 0($t0)
     	bne 	$t4, 0, print_optimal_solution__first_loop_if     	# if (*s)
     	j   	print_optimal_solution__first_loop_else
@@ -1507,7 +1489,7 @@ print_optimal_solution__early_return:
 
 print_optimal_solution__second_loop_init:
     	la  	$t0, optimal_solution        				# s = optimal_solution;
-    	li  	$t1, 0                       				# i = 0
+    	li  	$t1, 0                       				# int i = 0;
     	lw  	$t2, steps
     	lw  	$t3, optimal_steps
     	bgt 	$t2, $t3, print_optimal_solution__early_return    	# if (steps > optimal_steps)
@@ -1537,8 +1519,8 @@ print_optimal_solution__second_loop_second_body:
     	li  	$a0, ' '
     	syscall                          				# putchar(' ');
 
-    	addi 	$t0, $t0, 1                 				# s++
-    	addi 	$t1, $t1, 1                 				# i++
+    	addi 	$t0, $t0, 1                 				# s++;
+    	addi 	$t1, $t1, 1                 				# i++;
     	lb  	$t4, 0($t0)
     	beq 	$t4, 0, print_optimal_solution__second_loop_newline 	# if (!*s)
     	j   	print_optimal_solution__second_loop_cond
