@@ -484,6 +484,7 @@ print_welcome:
 	#   -> print_welcome__epilogue
 
 print_welcome__prologue:
+	BEGIN
 
 print_welcome__body:
 	li 	$v0, 4
@@ -552,6 +553,7 @@ print_welcome__body:
 	syscall                             		# printf("\n");
 
 print_welcome__epilogue:
+	END
 	jr	$ra
 
 
@@ -591,6 +593,7 @@ in_bounds:
 	#   -> in_bounds__epilogue
 
 in_bounds__prologue:
+	BEGIN
 
 in_bounds__body:
 	bgt	$a1, $a0, in_bounds_return_false    # if (value < minimum);
@@ -604,6 +607,7 @@ in_bounds_return_false:
 	li 	$v0, 0                              # return_val = 0;
 
 in_bounds__epilogue:
+	END
 	jr	$ra                                 # return return_val;
 
 
@@ -848,6 +852,7 @@ game_finished:
 	#   -> game_finished__epilogue
 
 game_finished__prologue:
+	BEGIN
 
 game_finished__init:
     	lb  	$t0, 0($a0)					# char expected_colour = board[0][0];
@@ -884,6 +889,7 @@ game_finished__return_false:
 	li 	$v0, FALSE					# return_val = FALSE;
 
 game_finished__epilogue:
+	END
 	jr	$ra						# return return_val;
 
 
@@ -1041,6 +1047,7 @@ initialise_fill_in_progress:
 	#   -> initialise_fill_in_progress__epilogue
 
 initialise_fill_in_progress__prologue:
+	BEGIN
 
 initialise_fill_in_progress__body:
 	sb 	$a1, FILL_WITH_OFFSET($a0)				# init_me->fill_with = fill_with;
@@ -1076,6 +1083,7 @@ initialise_fill_in_progress__col_end:
 	j 	initialise_fill_in_progress__row_cond
 
 initialise_fill_in_progress__epilogue:
+	END
 	jr	$ra							# return;
 
 
@@ -1129,11 +1137,11 @@ initialise_board__prologue:
 	push 	$s1
 
 initialise_board__body:
-	li 	$s0, 0                                 			# row = 0
+	li 	$s0, 0                                 			# int row = 0;
 
 initialise_board__row_loop:
 	bge 	$s0, MAX_BOARD_HEIGHT, initialise_board__epilogue  	# for (int row = 0 ...)
-	li 	$s1, 0                                 			# col = 0
+	li 	$s1, 0                                 			# int col = 0;
 
 initialise_board__col_loop:
 	bge 	$s1, MAX_BOARD_WIDTH, initialise_board__end_col_loop  	# for (int col = 0 ...)
@@ -1152,11 +1160,11 @@ initialise_board__col_loop:
 	add 	$t3, $t3, $t4
 	sb 	$t2, 0($t3)                            			# game_board[row][col] = ...
 
-	addi 	$s1, $s1, 1                          			# col++
+	addi 	$s1, $s1, 1                          			# col++;
 	j 	initialise_board__col_loop
 
 initialise_board__end_col_loop:
-	addi 	$s0, $s0, 1                          			# row++
+	addi 	$s0, $s0, 1                          			# row++;
 	j 	initialise_board__row_loop
 
 initialise_board__epilogue:
@@ -1279,15 +1287,8 @@ invalid_step:
 	#   - $t0, $t1, $t2, $t3, $t4, $t5, $t6
 	#
 	# Locals:
-	#   - $s0: pointer to struct solver (saved from $a0)
-	#   - $s1: colour index (saved from $a1)
-	#   - $t0: used for storing temporary values like result flags (e.g., `found`)
-	#   - $t1: loop variable `row`
-	#   - $t2: loop variable `col`
-	#   - $t3: base address or offset to board or colour_selector
-	#   - $t4: computed 2D index offset
-	#   - $t5: cell value from board or adjacent check
-	#   - $t6: selected colour value from colour_selector
+	#   - $s0: pointer to struct solver
+	#   - $s1: colour index
 	#
 	# Structure:
 	#   invalid_step
@@ -1447,6 +1448,7 @@ print_optimal_solution:
 	#   -> print_optimal_solution__epilogue
 
 print_optimal_solution__prologue:
+	BEGIN
 
 print_optimal_solution__body:
 
@@ -1531,6 +1533,7 @@ print_optimal_solution__second_loop_newline:
     	j   	print_optimal_solution__second_loop_cond
 
 print_optimal_solution__epilogue:
+	END
     	jr  	$ra                          				# return;
 
 
@@ -1548,23 +1551,147 @@ print_optimal_solution__epilogue:
 rate_choice:
 	# Subset:   3
 	#
-	# Frame:    [...]   <-- FILL THESE OUT!
-	# Uses:     [...]
-	# Clobbers: [...]
+	# Frame:
+	#   - $ra, $fp, $s0, $s1, $s2
 	#
-	# Locals:           <-- FILL THIS OUT!
-	#   - ...
+	# Uses:
+	#   - $a0, $a1
+	#   - $v0
+	#   - $s0, $s1, $s2
+	#   - $t0, $t1, $t2, $t3, $t4, $t5, $t6
 	#
-	# Structure:        <-- FILL THIS OUT!
+	# Clobbers:
+	#   - $a0, $a1
+	#   - $v0
+	#   - $t0, $t1, $t2, $t3, $t4, $t5, $t6
+	#
+	# Locals:
+	#   - $s0: pointer to struct step_rating
+	#   - $s1: seen flag
+	#   - $s2: 2D array offset
+	#
+	# Structure:
 	#   rate_choice
-	#   -> [prologue]
-	#       -> body
-	#   -> [epilogue]
+	#   -> rate_choice__prologue
+	#   -> rate_choice__body
+	#     -> rate_choice__row_loop_cond
+	#       -> rate_choice__col_loop_cond
+	#         -> rate_choice__loop_body
+	#           -> rate_choice__loop_first_if
+	#             -> rate_choice__loop_seen_true
+	#           -> rate_choice__loop_second_if
+	#             -> rate_choice__loop_is_eliminated
+	#           -> rate_choice__loop_third_if
+	#             -> rate_choice__loop_add_surface_area
+	#         -> rate_choice__col_loop_end
+	#       -> rate_choice__row_loop_end
+	#     -> rate_choice__end
+	#       -> rate_choice__end_is_eliminated
+	#   -> rate_choice__epilogue
 
 rate_choice__prologue:
+	BEGIN
+	push 	$ra
+	push 	$s0
+	push 	$s1
+	push 	$s2
+
 rate_choice__body:
+	add 	$t0, $a0, STEP_RATING_FOR_COLOUR_OFFSET
+	mul 	$t1, $a1, 8
+	add 	$s0, $t0, $t1
+
+	addi 	$t0, $s0, IS_ELIMINATED_OFFSET
+	li 	$t1, TRUE				# solver->...[colour_index].is_eliminated = TRUE;
+	sw 	$t1, ($t0)
+
+	addi 	$t0, $s0, SURFACE_AREA_OFFSET
+	li 	$t1, 0					# solver->...[colour_index].surface_area = 0;
+	sw 	$t1, ($t0)
+
+	li 	$s1, FALSE				# int seen = FALSE;
+	li 	$t0, 0					# int row = 0;
+	li 	$t1, 0					# int col = 0;
+
+rate_choice__row_loop_cond:
+	lw 	$t2, board_height
+	bge 	$t0, $t2, rate_choice__end		# for (int row = 0; row < board_height; row++)
+
+rate_choice__col_loop_cond:
+	lw 	$t2, board_width
+	bge 	$t1, $t2, rate_choice__row_loop_end	# for (int col = 0; col < board_width; col++)
+
+rate_choice__loop_body:
+	mul 	$t3, $t0, MAX_BOARD_WIDTH
+	add 	$t3, $t3, $t1
+	move 	$s2, $t3
+
+	move 	$t3, $a0
+	add 	$t3, $t3, SIMULATED_BOARD_OFFSET
+	add 	$t3, $t3, $s2
+	lb 	$t4, ($t3)
+
+	la 	$t5, colour_selector
+	add 	$t5, $t5, $a1
+	lb 	$t6, ($t5)
+
+	beq 	$t4, $t6, rate_choice__loop_seen_true	# if (... == ...)
+	j 	rate_choice__loop_second_if
+
+rate_choice__loop_seen_true:
+	li 	$s1, TRUE				# seen = TRUE;
+
+rate_choice__loop_second_if:
+	move 	$t3, $a0
+	add 	$t3, $t3, ADJACENT_TO_CELL_OFFSET
+	add 	$t3, $t3, $s2
+	lb 	$t4, ($t3)
+
+	beq 	$t4, NOT_VISITED, rate_choice__loop_is_eliminated	# if (... == NOT_VISITED)
+	j 	rate_choice__loop_third_if
+
+rate_choice__loop_is_eliminated:
+	addi 	$t5, $s0, IS_ELIMINATED_OFFSET
+	li 	$t6, FALSE				# solver->...[colour_index].is_eliminated = FALSE;
+	sw 	$t6, ($t5)
+
+rate_choice__loop_third_if:
+	beq 	$t4, ADJACENT, rate_choice__loop_add_surface_area	# else if (... == ADJACENT)
+	j 	rate_choice__col_loop_end
+
+rate_choice__loop_add_surface_area:
+	addi 	$t5, $s0, SURFACE_AREA_OFFSET
+	lw 	$t6, ($t5)
+	addi 	$t6, $t6, 1				# solver->...[colour_index].surface_area++;
+	sw 	$t6, ($t5)
+
+rate_choice__col_loop_end:
+	addi 	$t1, $t1, 1				# col++;
+	j 	rate_choice__col_loop_cond
+
+rate_choice__row_loop_end:
+	li 	$t1, 0					# col = 0;
+	addi 	$t0, $t0, 1				# row++;
+	j 	rate_choice__row_loop_cond
+
+rate_choice__end:
+	beqz 	$s1, rate_choice__end_is_eliminated	# if (!seen)
+	j 	rate_choice__epilogue
+
+rate_choice__end_is_eliminated:
+	addi 	$t5, $s0, IS_ELIMINATED_OFFSET
+	li 	$t6, FALSE				# solver->...[colour_index].is_eliminated = FALSE;
+	sw 	$t6, ($t5)
+
 rate_choice__epilogue:
-	jr	$ra
+	pop 	$s2
+	pop 	$s1
+	pop 	$s0
+	pop 	$ra
+	END
+	jr	$ra					# return;
+
+
 
 ########################################################################
 ## void find_adjacent_cells(struct solver *solver, int row, int col); ##
@@ -1576,23 +1703,146 @@ rate_choice__epilogue:
 find_adjacent_cells:
 	# Subset:   3
 	#
-	# Frame:    [...]   <-- FILL THESE OUT!
-	# Uses:     [...]
-	# Clobbers: [...]
+	# Frame:
+	#   - $ra, $s0, $s1, $s2, $s3, $s4, $s5, $s6
 	#
-	# Locals:           <-- FILL THIS OUT!
-	#   - ...
+	# Uses:
+	#   - $a0, $a1, $a2
+	#   - $v0
+	#   - $s0, $s1, $s2, $s3, $s4, $s5, $s6
+	#   - $t0, $t1, $t2, $t3
 	#
-	# Structure:        <-- FILL THIS OUT!
+	# Clobbers:
+	#   - $a0, $a1, $a2
+	#   - $v0
+	#   - $t0, $t1, $t2, $t3
+	#
+	# Locals:
+	#   - $s0: pointer to struct solver
+	#   - $s1: row index
+	#   - $s2: column index
+	#   - $s3: offset = row * MAX_BOARD_WIDTH + col
+	#   - $s4: loop index i
+	#   - $s5: row delta
+	#   - $s6: col delta
+	#
+	# Structure:
 	#   find_adjacent_cells
-	#   -> [prologue]
-	#       -> body
-	#   -> [epilogue]
+	#   -> find_adjacent_cells__prologue
+	#       -> find_adjacent_cells__body
+	#           -> find_adjacent_cells__adjacent_exit
+	#           -> find_adjacent_cells__loop_init
+	#               -> find_adjacent_cells__loop_cond
+	#                   -> find_adjacent_cells__loop_body
+	#                   -> find_adjacent_cells__loop_end
+	#       -> find_adjacent_cells__epilogue
 
 find_adjacent_cells__prologue:
+	BEGIN
+	push 	$ra
+	push 	$s0
+	push 	$s1
+	push 	$s2
+	push 	$s3
+	push 	$s4
+	push 	$s5
+	push 	$s6
+
 find_adjacent_cells__body:
+	move 	$s0, $a0
+	move 	$s1, $a1
+	move 	$s2, $a2
+
+	mul 	$t0, $s1, MAX_BOARD_WIDTH
+	add 	$t0, $t0, $s2
+	move 	$s3, $t0						# offset = row * MAX_BOARD_WIDTH + col;
+
+	lb 	$t0, SIMULATED_BOARD_OFFSET($s0)			# char fill_region_colour = ...;
+
+	add 	$t2, $s0, ADJACENT_TO_CELL_OFFSET
+	add 	$t1, $t2, $s3
+	lb 	$t3, ($t1)
+	bne 	$t3, NOT_VISITED, find_adjacent_cells__epilogue		# if (... != NOT_VISITED) return;
+
+	add 	$t2, $s0, SIMULATED_BOARD_OFFSET
+	add 	$t1, $t2, $s3
+	lb 	$t3, ($t1)
+	bne 	$t3, $t0, find_adjacent_cells__adjacent_exit		# if (... != fill_region_colour)
+
+	add 	$t2, $s0, ADJACENT_TO_CELL_OFFSET
+	add 	$t1, $t2, $s3
+	li 	$t3, VISITED
+	sb 	$t3, ($t1)						# solver->... = VISITED;
+
+	j 	find_adjacent_cells__loop_init
+
+find_adjacent_cells__adjacent_exit:
+	add 	$t2, $s0, ADJACENT_TO_CELL_OFFSET
+	add 	$t1, $t2, $s3
+	li 	$t3, ADJACENT
+	sb 	$t3, ($t1)						# solver->... = ADJACENT;
+
+	j 	find_adjacent_cells__epilogue
+
+find_adjacent_cells__loop_init:
+	li 	$s4, 0							# int i = 0;
+
+find_adjacent_cells__loop_cond:
+	bge 	$s4, NUM_VISIT_DELTAS, find_adjacent_cells__epilogue
+
+find_adjacent_cells__loop_body:
+	la 	$t1, visit_deltas
+
+	mul 	$t2, $s4, 2
+	addi 	$t2, $t2, VISIT_DELTA_ROW
+	mul 	$t2, $t2, SIZEOF_INT
+	add 	$t2, $t2, $t1
+	lw 	$s5, ($t2)						# int row_delta = ...;
+
+	mul 	$t2, $s4, 2
+	addi 	$t2, $t2, VISIT_DELTA_COL
+	mul 	$t2, $t2, SIZEOF_INT
+	add 	$t2, $t2, $t1
+	lw 	$s6, ($t2)						# int col_delta = ...;
+
+	add 	$a0, $s1, $s5
+	li 	$a1, 0
+	lw 	$t0, board_height
+	sub 	$a2, $t0, 1
+	jal 	in_bounds						# if (!in_bounds(...)) continue;
+
+	beqz 	$v0, find_adjacent_cells__loop_end
+
+	add 	$a0, $s2, $s6
+	li 	$a1, 0
+	lw 	$t0, board_width
+	sub 	$a2, $t0, 1
+	jal 	in_bounds						# if (!in_bounds(...)) continue;
+
+	beqz 	$v0, find_adjacent_cells__loop_end
+
+	move 	$a0, $s0
+	add 	$a1, $s1, $s5
+	add 	$a2, $s2, $s6
+	jal 	find_adjacent_cells					# find_adjacent_cells(...);
+
+find_adjacent_cells__loop_end:
+	addi 	$s4, $s4, 1						# i++;
+	j 	find_adjacent_cells__loop_cond
+
 find_adjacent_cells__epilogue:
-	jr	$ra
+	pop 	$s6
+	pop 	$s5
+	pop 	$s4
+	pop 	$s3
+	pop 	$s2
+	pop 	$s1
+	pop 	$s0
+	pop 	$ra
+	END
+	jr	$ra							# return;
+
+
 
 ##########################################################################
 ## void fill(struct fill_in_progress *fill_in_progress,                 ##
@@ -1605,23 +1855,146 @@ find_adjacent_cells__epilogue:
 fill:
 	# Subset:   3
 	#
-	# Frame:    [...]   <-- FILL THESE OUT!
-	# Uses:     [...]
-	# Clobbers: [...]
+	# Frame:
+	#   - $ra, $s0, $s1, $s2, $s3, $s4, $s5, $s6, $s7
 	#
-	# Locals:           <-- FILL THIS OUT!
-	#   - ...
+	# Uses:
+	#   - $a0, $a1, $a2, $a3
+	#   - $v0
+	#   - $s0, $s1, $s2, $s3, $s4, $s5, $s6, $s7
+	#   - $t0, $t1, $t2, $t3
 	#
-	# Structure:        <-- FILL THIS OUT!
+	# Clobbers:
+	#   - $a0, $a1, $a2, $a3
+	#   - $v0
+	#   - $t0, $t1, $t2, $t3
+	#
+	# Locals:
+	#   $s0: pointer to struct fill_in_progress
+	#   $s1: pointer to board array
+	#   $s2: row
+	#   $s3: col
+	#   $s4: offset = row * MAX_BOARD_WIDTH + col
+	#   $s5: loop index i
+	#   $s6: row_delta
+	#   $s7: col_delta
+	#
+	# Structure:
 	#   fill
-	#   -> [prologue]
-	#       -> body
-	#   -> [epilogue]
+	#   -> fill__prologue
+	#   -> fill__body
+	#       -> fill__add_cells_filled
+	#       -> fill__pre_loop
+	#           -> fill__loop_cond
+	#               -> fill__loop_body
+	#               -> fill__loop_end
+	#   -> fill__epilogue
 
 fill__prologue:
+	BEGIN
+	push 	$ra
+	push 	$s0
+	push 	$s1
+	push 	$s2
+	push 	$s3
+	push 	$s4
+	push 	$s5
+	push 	$s6
+	push 	$s7
+
 fill__body:
+	move 	$s0, $a0                                	# struct fill_in_progress *fill_in_progress
+	move 	$s1, $a1                                	# char board[][]
+	move 	$s2, $a2                                	# int row
+	move 	$s3, $a3                                	# int col
+
+	li 	$t0, MAX_BOARD_WIDTH
+	mul 	$t0, $t0, $s2
+	add 	$s4, $t0, $s3                           	# offset = row * MAX_BOARD_WIDTH + col
+
+	addi 	$t0, $s0, VISITED_OFFSET
+	add 	$t0, $t0, $s4
+	lb 	$t1, ($t0)
+	beq 	$t1, VISITED, fill__epilogue           		# if (visited[row][col] == VISITED) return;
+
+	li 	$t1, VISITED
+	sb 	$t1, ($t0)                               	# visited[row][col] = VISITED;
+
+	add 	$t0, $s1, $s4
+	lb 	$t1, ($t0)
+	lb 	$t2, FILL_ONTO_OFFSET($s0)
+	bne 	$t1, $t2, fill__epilogue                	# if (board[row][col] != fill_onto) return;
+
+	lb 	$t2, FILL_WITH_OFFSET($s0)
+	bne 	$t1, $t2, fill__add_cells_filled        	# if (board[row][col] != fill_with)
+
+	j 	fill__pre_loop
+
+fill__add_cells_filled:
+	lw 	$t3, CELLS_FILLED_OFFSET($s0)
+	addi 	$t3, $t3, 1
+	sw 	$t3, CELLS_FILLED_OFFSET($s0)           	# cells_filled++;
+
+fill__pre_loop:
+	sb 	$t2, ($t0)                               	# board[row][col] = ...->fill_with;
+	li 	$s5, 0                                   	# int i = 0;
+
+fill__loop_cond:
+	bge 	$s5, NUM_VISIT_DELTAS, fill__epilogue   	# for (i = 0; i < NUM_VISIT_DELTAS; i++)
+
+fill__loop_body:
+	la 	$t1, visit_deltas
+
+	mul 	$t2, $s5, 2
+	addi 	$t2, $t2, VISIT_DELTA_ROW
+	mul 	$t2, $t2, SIZEOF_INT
+	add 	$t2, $t2, $t1
+	lw 	$s6, ($t2)                               	# row_delta = visit_deltas[i][VISIT_DELTA_ROW];
+
+	mul 	$t2, $s5, 2
+	addi 	$t2, $t2, VISIT_DELTA_COL
+	mul 	$t2, $t2, SIZEOF_INT
+	add 	$t2, $t2, $t1
+	lw 	$s7, ($t2)                               	# col_delta = visit_deltas[i][VISIT_DELTA_COL];
+
+	add 	$a0, $s2, $s6
+	li 	$a1, 0
+	lw 	$t0, board_height
+	sub 	$a2, $t0, 1
+	jal 	in_bounds
+	beqz 	$v0, fill__loop_end                     	# if (!in_bounds(...)) continue;
+
+	add 	$a0, $s3, $s7
+	li 	$a1, 0
+	lw 	$t0, board_width
+	sub 	$a2, $t0, 1
+	jal 	in_bounds
+	beqz 	$v0, fill__loop_end                     	# if (!in_bounds(...)) continue;
+
+	move 	$a0, $s0
+	move 	$a1, $s1
+	add 	$a2, $s2, $s6
+	add 	$a3, $s3, $s7
+	jal 	fill                                     	# fill(...);
+
+fill__loop_end:
+	addi 	$s5, $s5, 1                             	# i++
+	j 	fill__loop_cond
+
 fill__epilogue:
-	jr	$ra
+	pop 	$s7
+	pop 	$s6
+	pop 	$s5
+	pop 	$s4
+	pop 	$s3
+	pop 	$s2
+	pop 	$s1
+	pop 	$s0
+	pop 	$ra
+	END
+	jr	$ra						# return;
+
+
 
 ##################################################
 ## void solve_next_step(struct solver *solver); ##
