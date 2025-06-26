@@ -2139,6 +2139,10 @@ solve_next_step__second_loop_cond:
 	bge 	$s3, NUM_COLOURS, solve_next_step__second_loop_end		# for (int i = 0; ...)
 
 solve_next_step__second_loop_body:
+	add 	$t0, $s0, STEP_RATING_FOR_COLOUR_OFFSET
+	mul 	$t1, $s3, 8
+	add 	$t0, $t0, $t1
+
 	lw 	$t1, IS_ELIMINATED_OFFSET($t0)
 	beq 	$t1, TRUE, solve_next_step__second_loop_is_eliminated		# if (... .is_eliminated)
 
