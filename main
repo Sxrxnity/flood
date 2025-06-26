@@ -9,7 +9,11 @@
 ## !!! IMPORTANT !!!                                                                 ##
 ##                                                                                   ##
 ## This program was written by Danny Sun (z5691331)                            	     ##
-## on 18/06/2025                                                              	     ##
+## on 18/06/2025   								     ##
+##   										     ##
+## This program implements a terminal-based colour flood fill puzzle game.	     ##
+## The player moves a cursor around a randomly generated coloured grid and           ##
+## performs flood fill operations until the board is all one colour.                 ##
 ##                                                                                   ##
 ## HEY! HEY YOU! Fill this header comment in RIGHT NOW!!! Don't miss out on that     ##
 ## precious style mark!!      >:O                                                    ##
@@ -409,6 +413,8 @@ str_process_command_unknown:
 ## SUBSET 0 ##
 ##############
 
+# main: Entry point that initializes the game and starts the main loop
+
 #####################
 ## int main(void); ##
 #####################
@@ -420,7 +426,7 @@ main:
 	# Subset:   0
 	#
 	# Frame:
-	#   - $ra, $fp
+	#   - $fp, $ra
 	#
 	# Uses:
 	#   - $v0
@@ -453,6 +459,8 @@ main__epilogue:
 	jr	$ra					# return 0;
 
 
+
+# print_welcome: Displays the game instructions to the user
 
 ###########################
 ## void print_welcome(); ##
@@ -562,6 +570,8 @@ print_welcome__epilogue:
 ## SUBSET 1 ##
 ##############
 
+# in_bounds: Checks if a value is within a specified [min, max] range
+
 #########################################################
 ## int in_bounds(int value, int minimum, int maximum); ##
 #########################################################
@@ -612,6 +622,8 @@ in_bounds__epilogue:
 
 
 
+# game_loop: Main game loop that processes commands until the game ends
+
 #######################
 ## void game_loop(); ##
 #######################
@@ -623,7 +635,7 @@ game_loop:
 	# Subset:   1
 	#
 	# Frame:
-	#   - $ra, $fp
+	#   - $ra
 	#
 	# Uses:
 	#   - $a0
@@ -636,7 +648,7 @@ game_loop:
 	#   - $t0
 	#
 	# Locals:
-	#   - $t0: stores game state
+	#   - $t0: game_state
 	#
 	# Structure:
 	#   game_loop
@@ -657,30 +669,29 @@ game_loop__body:
 	la 	$a0, game_board 	 	        		# print_board(game_board);
 	jal 	print_board
 
-game_state_playing_condition:
+game_state__playing_condition:
 	lw 	$t0, game_state
-	bne 	$t0, GAME_STATE_PLAYING, game_state_playing_end   	# while (game_state == GAME_STATE_PLAYING)
+	bne 	$t0, GAME_STATE_PLAYING, game_state__playing_end   	# while (game_state == GAME_STATE_PLAYING)
 
-game_state_playing_body:
+game_state__playing_body:
 	jal	process_command                 			# process_command();
-	j 	game_state_playing_condition
+	j 	game_state__playing_condition
 
-game_state_playing_end:
-	beq 	$t0, GAME_STATE_WON, game_state_won		        # if (game_state == GAME_STATE_WON)
-	beq 	$t0, GAME_STATE_LOST, game_state_lost		        # if (game_state == GAME_STATE_LOST)
+game_state__playing_end:
+	beq 	$t0, GAME_STATE_WON, game_state__won		        # if (game_state == GAME_STATE_WON)
+	beq 	$t0, GAME_STATE_LOST, game_state__lost		        # if (game_state == GAME_STATE_LOST)
 	j 	game_loop__epilogue
 
-game_state_won:
+game_state__won:
 	li 	$v0, 4
 	la	$a0, str_game_loop_win
 	syscall                                 			# printf("You win!\n");
 	j 	game_loop__epilogue
 
-game_state_lost:
+game_state__lost:
 	li 	$v0, 4
 	la	$a0, str_game_loop_lose
 	syscall                                 			# printf("You lose :(\n");
-	j 	game_loop__epilogue
 
 game_loop__epilogue:
 	pop 	$ra
@@ -688,6 +699,8 @@ game_loop__epilogue:
 	jr	$ra                                   			# return;
 
 
+
+# initialise_game: Prompts user for grid size and seed, then sets up the game
 
 #############################
 ## void initialise_game(); ##
@@ -700,23 +713,20 @@ initialise_game:
 	# Subset:   1
 	#
 	# Frame:
-	#   - $ra, $fp
+	#   - $fp, $ra
 	#
 	# Uses:
 	#   - $a0, $a1, $a2
 	#   - $v0
-	#   - $t1, $t2, $t3, $t4
+	#   - $t0
 	#
 	# Clobbers:
 	#   - $a0, $a1, $a2
 	#   - $v0
-	#   - $t1, $t2, $t3, $t4
+	#   - $t0
 	#
 	# Locals:
-	#   - $t1: user_width
-	#   - $t2: user_height
-	#   - $t3: user input for seed
-	#   - $t4: used to set game state variables
+	#   - $t0: Temp for loading and storing
 	#
 	# Structure:
 	#   initialise_game
@@ -738,12 +748,11 @@ initialise_game__body:
 
 	li 	$v0, 5
 	syscall							# scanf(" %d", &user_width);
-	move 	$t1, $v0
-	sw 	$t1, board_width                   		# board_width = user_width;
+	sw 	$v0, board_width                   		# board_width = user_width;
 
-	move 	$a0, $t1
-	la 	$a1, MIN_BOARD_WIDTH
-	la 	$a2, MAX_BOARD_WIDTH
+	move 	$a0, $v0
+	li 	$a1, MIN_BOARD_WIDTH
+	li 	$a2, MAX_BOARD_WIDTH
 	jal 	in_bounds                         		# if (!in_bounds())
 
 	beqz 	$v0, initialise_game__print_invalid_width       # printf("Invalid width!\n"); continue;
@@ -754,12 +763,11 @@ initialise_game__body:
 
 	li 	$v0, 5
 	syscall							# scanf(" %d", &user_height);
-	move 	$t2, $v0
-	sw 	$t2, board_height                  		# board_height = user_height;
+	sw 	$v0, board_height                  		# board_height = user_height;
 
-	move 	$a0, $t2
-	la 	$a1, MIN_BOARD_HEIGHT
-	la 	$a2, MAX_BOARD_HEIGHT
+	move 	$a0, $v0
+	li 	$a1, MIN_BOARD_HEIGHT
+	li 	$a2, MAX_BOARD_HEIGHT
 	jal 	in_bounds                         		# if (!in_bounds(...))
 
 	beqz 	$v0, initialise_game__print_invalid_height      # printf("Invalid height!\n"); continue;
@@ -792,11 +800,11 @@ initialise_game__end:
 	sw 	$zero, selected_column               		# selected_column = 0;
 	sw 	$zero, steps                         		# steps = 0;
 
-	li 	$t4, EXTRA_STEPS
-	sw 	$t4, extra_steps                   		# extra_steps = EXTRA_STEPS;
+	li 	$t0, EXTRA_STEPS
+	sw 	$t0, extra_steps                   		# extra_steps = EXTRA_STEPS;
 
-	li 	$t4, GAME_STATE_PLAYING
-	sw 	$t4, game_state                    		# game_state = GAME_STATE_PLAYING;
+	li 	$t0, GAME_STATE_PLAYING
+	sw 	$t0, game_state                    		# game_state = GAME_STATE_PLAYING;
 
 	jal 	initialise_board                  		# initialise_board();
 	jal 	find_optimal_solution             		# find_optimal_solution();
@@ -807,6 +815,8 @@ initialise_game__epilogue:
 	jr	$ra                                 		# return;
 
 
+
+# game_finished: Returns TRUE if all cells on the board match the top-left cell
 
 #######################################################################
 ## int game_finished(char board[MAX_BOARD_WIDTH][MAX_BOARD_HEIGHT]); ##
@@ -861,8 +871,8 @@ game_finished__init:
 	li 	$v0, TRUE					# return_val = TRUE;
 	li 	$t7, MAX_BOARD_WIDTH
 
-	lw 	$t3, board_height				# load board_height
-	lw 	$t4, board_width				# load board_width
+	lw 	$t3, board_height
+	lw 	$t4, board_width
 
 game_finished__row_cond:
 	bge 	$t1, $t3, game_finished__epilogue		# for (int row = 0; row < board_height; row++)
@@ -894,6 +904,8 @@ game_finished__epilogue:
 
 
 
+# do_fill: Performs a flood fill from the top-left cell and updates game state
+
 #####################
 ## void do_fill(); ##
 #####################
@@ -905,24 +917,23 @@ do_fill:
 	# Subset:   1
 	#
 	# Frame:
-	#   - $ra, $fp
+	#   - $fp, $ra
 	#
 	# Uses:
 	#   - $a0, $a1, $a2, $a3
 	#   - $v0
-	#   - $t0, $t1, $t2, $t3, $t4
+	#   - $t0, $t1, $t2, $t3
 	#
 	# Clobbers:
 	#   - $a0, $a1, $a2, $a3
 	#   - $v0
-	#   - $t0, $t1, $t2, $t3, $t4
+	#   - $t0, $t1, $t2, $t3
 	#
 	# Locals:
 	#   - $t0: selected_row, optimal_steps, or step counter
 	#   - $t1: selected_column or extra_steps
 	#   - $t2: MAX_BOARD_WIDTH or steps
 	#   - $t3: offset = row * width + col
-	#   - $t4: base address of game_board
 	#
 	# Structure:
 	#   do_fill
@@ -945,10 +956,8 @@ do_fill__body:
 
 	mul  	$t3, $t0, $t2
 	add  	$t3, $t3, $t1
-	la   	$t4, game_board
-	add  	$t3, $t3, $t4
 
-	lb   	$a1, 0($t3)                             # game_board[selected_row][selected_column]
+	lb   	$a1, game_board($t3)                    # game_board[selected_row][selected_column]
 	lb 	$a2, game_board                         # game_board[0][0]
 	jal 	initialise_fill_in_progress             # initialise_fill_in_progress(...);
 
@@ -1008,6 +1017,8 @@ do_fill__epilogue:
 ## SUBSET 2 ##
 ##############
 
+# initialise_fill_in_progress: Initializes a fill_in_progress struct for flood filling
+
 ########################################################################
 ## void initialise_fill_in_progress(struct fill_in_progress *init_me, ##
 ##     char fill_with, char fill_onto);                               ##
@@ -1020,7 +1031,7 @@ initialise_fill_in_progress:
 	# Subset:   2
 	#
 	# Frame:
-	#   - $ra, $fp
+	#   - $fp, $ra
 	#
 	# Uses:
 	#   - $a0, $a1, $a2
@@ -1088,6 +1099,8 @@ initialise_fill_in_progress__epilogue:
 
 
 
+# initialise_board: Fills the entire game board with random colours
+
 ##############################
 ## void initialise_board(); ##
 ##############################
@@ -1099,7 +1112,7 @@ initialise_board:
 	# Subset:   2
 	#
 	# Frame:
-	#   - $ra, $fp, $s0, $s1
+	#   - $fp, $ra, $s0, $s1
 	#
 	# Uses:
 	#   - $a0, $a1
@@ -1176,6 +1189,8 @@ initialise_board__epilogue:
 
 
 
+# find_optimal_solution: Computes an optimal series of fill steps using a greedy solver
+
 ###################################
 ## void find_optimal_solution(); ##
 ###################################
@@ -1187,7 +1202,7 @@ find_optimal_solution:
 	# Subset:   2
 	#
 	# Frame:
-	#   - $ra, $fp, $s0
+	#   - $fp, $ra, $s0
 	#
 	# Uses:
 	#   - $a0, $a1, $a2
@@ -1262,6 +1277,8 @@ find_optimal_solution__epilogue:
 
 
 
+# invalid_step: Determines if filling with a colour would result in no progress
+
 ################################################################
 ## int invalid_step(struct solver *solver, int colour_index); ##
 ################################################################
@@ -1273,7 +1290,7 @@ invalid_step:
 	# Subset:   2
 	#
 	# Frame:
-	#   - $ra, $fp, $s0, $s1
+	#   - $fp, $ra, $s0, $s1
 	#
 	# Uses:
 	#   - $a0, $a1, $a2
@@ -1397,6 +1414,8 @@ invalid_step__epilogue:
 	jr	$ra
 
 
+
+# print_optimal_solution: Displays the optimal solution and marks the current step
 
 ####################################
 ## void print_optimal_solution(); ##
@@ -1542,6 +1561,8 @@ print_optimal_solution__epilogue:
 ## SUBSET 3 ##
 ##############
 
+# rate_choice: Rates a colour by whether it would eliminate the colour and its surface area
+
 ################################################################
 ## void rate_choice(struct solver *solver, int colour_index); ##
 ################################################################
@@ -1553,7 +1574,7 @@ rate_choice:
 	# Subset:   3
 	#
 	# Frame:
-	#   - $ra, $fp, $s0, $s1, $s2
+	#   - $fp, $ra, $s0, $s1, $s2
 	#
 	# Uses:
 	#   - $a0, $a1
@@ -1627,14 +1648,11 @@ rate_choice__loop_body:
 	add 	$t3, $t3, $t1
 	move 	$s2, $t3
 
-	move 	$t3, $a0
-	add 	$t3, $t3, SIMULATED_BOARD_OFFSET
-	add 	$t3, $t3, $s2
-	lb 	$t4, ($t3)
+	add 	$t3, $a0, $s2
+	lb 	$t4, SIMULATED_BOARD_OFFSET($t3)
 
-	la 	$t5, colour_selector
-	add 	$t5, $t5, $a1
-	lb 	$t6, ($t5)
+	move 	$t5, $a1
+	lb 	$t6, colour_selector($t5)
 
 	beq 	$t4, $t6, rate_choice__loop_seen_true	# if (... == ...)
 	j 	rate_choice__loop_second_if
@@ -1643,10 +1661,8 @@ rate_choice__loop_seen_true:
 	li 	$s1, TRUE				# seen = TRUE;
 
 rate_choice__loop_second_if:
-	move 	$t3, $a0
-	add 	$t3, $t3, ADJACENT_TO_CELL_OFFSET
-	add 	$t3, $t3, $s2
-	lb 	$t4, ($t3)
+	add 	$t3, $a0, $s2
+	lb 	$t4, ADJACENT_TO_CELL_OFFSET($t3)
 
 	beq 	$t4, NOT_VISITED, rate_choice__loop_is_eliminated	# if (... == NOT_VISITED)
 	j 	rate_choice__loop_third_if
@@ -1694,6 +1710,8 @@ rate_choice__epilogue:
 
 
 
+# find_adjacent_cells: Marks all cells adjacent to the flood-filled region starting at (0,0)
+
 ########################################################################
 ## void find_adjacent_cells(struct solver *solver, int row, int col); ##
 ########################################################################
@@ -1705,7 +1723,7 @@ find_adjacent_cells:
 	# Subset:   3
 	#
 	# Frame:
-	#   - $ra, $s0, $s1, $s2, $s3, $s4, $s5, $s6
+	#   - $fp, $ra, $s0, $s1, $s2, $s3, $s4, $s5, $s6
 	#
 	# Uses:
 	#   - $a0, $a1, $a2
@@ -1845,6 +1863,8 @@ find_adjacent_cells__epilogue:
 
 
 
+# fill: Performs a recursive flood fill on the game board
+
 ##########################################################################
 ## void fill(struct fill_in_progress *fill_in_progress,                 ##
 ##    char board[MAX_BOARD_WIDTH][MAX_BOARD_HEIGHT], int row, int col); ##
@@ -1857,7 +1877,7 @@ fill:
 	# Subset:   3
 	#
 	# Frame:
-	#   - $ra, $s0, $s1, $s2, $s3, $s4, $s5, $s6, $s7
+	#   - $fp, $ra, $s0, $s1, $s2, $s3, $s4, $s5, $s6, $s7
 	#
 	# Uses:
 	#   - $a0, $a1, $a2, $a3
@@ -1871,14 +1891,14 @@ fill:
 	#   - $t0, $t1, $t2, $t3
 	#
 	# Locals:
-	#   $s0: pointer to struct fill_in_progress
-	#   $s1: pointer to board array
-	#   $s2: row
-	#   $s3: col
-	#   $s4: offset = row * MAX_BOARD_WIDTH + col
-	#   $s5: loop index i
-	#   $s6: row_delta
-	#   $s7: col_delta
+	#   - $s0: pointer to struct fill_in_progress
+	#   - $s1: pointer to board array
+	#   - $s2: row
+	#   - $s3: col
+	#   - $s4: offset = row * MAX_BOARD_WIDTH + col
+	#   - $s5: loop index i
+	#   - $s6: row_delta
+	#   - $s7: col_delta
 	#
 	# Structure:
 	#   fill
@@ -1997,6 +2017,8 @@ fill__epilogue:
 
 
 
+# solve_next_step: Chooses and simulates the next best fill step based on elimination and surface area
+
 ##################################################
 ## void solve_next_step(struct solver *solver); ##
 ##################################################
@@ -2011,7 +2033,7 @@ solve_next_step:
 	# Subset:   3
 	#
 	# Frame:
-	#   - $ra, $s0, $s1, $s2, $s3, $s4
+	#   - $fp, $ra, $s0, $s1, $s2, $s3, $s4
 	#
 	# Uses:
 	#   - $a0, $a1, $a2
@@ -2235,6 +2257,8 @@ solve_next_step__epilogue:
 
 
 
+# copy_mem: Copies a block of memory from src to dst
+
 #########################################################
 ## void copy_mem(void *src, void *dst, int num_bytes); ##
 #########################################################
@@ -2246,7 +2270,7 @@ copy_mem:
 	# Subset:   3
 	#
 	# Frame:
-	#   - $ra, $s0, $s1, $s2
+	#   - $fp, $ra, $s0, $s1, $s2
 	#
 	# Uses:
 	#   - $a0, $a1, $a2
