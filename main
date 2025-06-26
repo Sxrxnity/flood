@@ -1537,6 +1537,7 @@ print_optimal_solution__epilogue:
     	jr  	$ra                          				# return;
 
 
+
 ##############
 ## SUBSET 3 ##
 ##############
@@ -1978,7 +1979,7 @@ fill__loop_body:
 	jal 	fill                                     	# fill(...);
 
 fill__loop_end:
-	addi 	$s5, $s5, 1                             	# i++
+	addi 	$s5, $s5, 1                             	# i++;
 	j 	fill__loop_cond
 
 fill__epilogue:
@@ -2003,26 +2004,232 @@ fill__epilogue:
 ################################################################################
 # .TEXT <solve_next_step>
 	.text
+################################################################################
+# .TEXT <solve_next_step>
+	.text
 solve_next_step:
 	# Subset:   3
 	#
-	# Frame:    [...]   <-- FILL THESE OUT!
-	# Uses:     [...]
-	# Clobbers: [...]
+	# Frame:
+	#   - $ra, $s0, $s1, $s2, $s3, $s4
 	#
-	# Locals:           <-- FILL THIS OUT!
-	#   - ...
+	# Uses:
+	#   - $a0, $a1, $a2
+	#   - $v0
+	#   - $s0, $s1, $s2, $s3, $s4
+	#   - $t0, $t1, $t2, $t3, $t4
 	#
-	# Structure:        <-- FILL THIS OUT!
+	# Clobbers:
+	#   - $a0, $a1, $a2
+	#   - $v0
+	#   - $t0, $t1, $t2, $t3, $t4
+	#
+	# Locals:
+	#   - $s0: pointer to struct solver
+	#   - $s1: best_surface_area
+	#   - $s2: best_solution
+	#   - $s3: loop counter i
+	#   - $s4: MAX_BOARD_WIDTH * MAX_BOARD_HEIGHT
+	#
+	# Structure:
 	#   solve_next_step
-	#   -> [prologue]
-	#       -> body
-	#   -> [epilogue]
+	#   -> solve_next_step__prologue
+	#   -> solve_next_step__body
+	#     -> solve_next_step__first_loop_init
+	#       -> solve_next_step__first_loop_cond
+	#         -> solve_next_step__first_loop_body
+	#         -> solve_next_step__first_loop_invalid_step
+	#       -> solve_next_step__first_loop_end
+	#     -> solve_next_step__second_loop_init
+	#       -> solve_next_step__second_loop_cond
+	#         -> solve_next_step__second_loop_body
+	#         -> solve_next_step__second_loop_is_eliminated
+	#       -> solve_next_step__second_loop_end
+	#     -> solve_next_step__third_loop_init
+	#       -> solve_next_step__third_loop_cond
+	#         -> solve_next_step__third_loop_body
+	#         -> solve_next_step__third_loop_new_best
+	#       -> solve_next_step__third_loop_end
+	#   -> solve_next_step__epilogue
 
 solve_next_step__prologue:
+	BEGIN
+	push 	$ra
+	push 	$s0
+	push 	$s1
+	push 	$s2
+	push 	$s3
+	push 	$s4
+
 solve_next_step__body:
+	move 	$s0, $a0
+	li 	$s1, -1								# int best_surface_area = -1;
+	li 	$s2, -1								# int best_solution = -1;
+
+	li 	$t0, MAX_BOARD_WIDTH
+	li 	$t1, MAX_BOARD_HEIGHT
+	mul 	$s4, $t0, $t1
+
+	add 	$a0, $s0, SIMULATED_BOARD_OFFSET
+	add 	$a1, $s0, FUTURE_BOARD_OFFSET
+	move 	$a2, $s4
+	jal 	copy_mem							# copy_mem(...);
+
+solve_next_step__first_loop_init:
+	li 	$s3, 0								# int i = 0;
+
+solve_next_step__first_loop_cond:
+	bge 	$s3, NUM_COLOURS, solve_next_step__first_loop_end		# for (int i = 0; ...)
+
+solve_next_step__first_loop_body:
+	add 	$a0, $s0, FUTURE_BOARD_OFFSET
+	add 	$a1, $s0, SIMULATED_BOARD_OFFSET
+	move 	$a2, $s4
+	jal 	copy_mem							# copy_mem(...);
+
+	move 	$a0, $s0
+	move 	$a1, $s3
+	jal 	invalid_step
+
+	beq 	$v0, TRUE, solve_next_step__first_loop_invalid_step		# if (invalid_step(solver, i))
+
+	move 	$a0, $s0
+	move 	$a1, $s3
+	jal 	simulate_step							# simulate_step(solver, i);
+
+	move 	$a0, $s0
+	jal 	initialise_solver_adjacent_cells				# initialise_...(solver);
+
+	move 	$a0, $s0
+	li 	$a1, 0
+	li 	$a2, 0
+	jal 	find_adjacent_cells						# find_adjacent_cells(...);
+
+	move 	$a0, $s0
+	move 	$a1, $s3
+	jal 	rate_choice							# rate_choice(solver, i);
+
+	addi 	$s3, $s3, 1							# i++;
+	j 	solve_next_step__first_loop_cond
+
+solve_next_step__first_loop_invalid_step:
+	add 	$t0, $s0, STEP_RATING_FOR_COLOUR_OFFSET
+	mul 	$t1, $s3, 8
+	add 	$t0, $t0, $t1
+
+	li 	$t2, FALSE
+	sw 	$t2, IS_ELIMINATED_OFFSET($t0)					# solver->... = FALSE;
+
+	li 	$t2, -1
+	sw 	$t2, SURFACE_AREA_OFFSET($t0)					# solver->... = -1;
+
+	addi 	$s3, $s3, 1							# i++;
+	j 	solve_next_step__first_loop_cond
+
+solve_next_step__first_loop_end:
+	add 	$a0, $s0, FUTURE_BOARD_OFFSET
+	add 	$a1, $s0, SIMULATED_BOARD_OFFSET
+	move 	$a2, $s4
+	jal 	copy_mem							# copy_mem(...);
+
+solve_next_step__second_loop_init:
+	li 	$s3, 0								# int i = 0;
+
+solve_next_step__second_loop_cond:
+	bge 	$s3, NUM_COLOURS, solve_next_step__second_loop_end		# for (int i = 0; ...)
+
+solve_next_step__second_loop_body:
+	lw 	$t1, IS_ELIMINATED_OFFSET($t0)
+	beq 	$t1, TRUE, solve_next_step__second_loop_is_eliminated		# if (... .is_eliminated)
+
+	addi 	$s3, $s3, 1							# i++;
+	j 	solve_next_step__second_loop_cond
+
+solve_next_step__second_loop_is_eliminated:
+	add 	$t0, $s0, OPTIMAL_SOLUTION_OFFSET
+	lw 	$t1, SOLUTION_LENGTH_OFFSET($s0)
+	add 	$t2, $t0, $t1
+
+	la 	$t3, colour_selector
+	add 	$t3, $t3, $s3
+	lb 	$t4, ($t3)
+	sb 	$t4, ($t2)							# solver->... = ...[i];
+
+	lw 	$t0, SOLUTION_LENGTH_OFFSET($s0)
+	addi 	$t0, $t0, 1
+	sw 	$t0, SOLUTION_LENGTH_OFFSET($s0)				# solver->solution_length++;
+
+	move 	$a0, $s0
+	move 	$a1, $s3
+	jal 	simulate_step							# simulate_step(solver, i);
+
+	add 	$a0, $s0, SIMULATED_BOARD_OFFSET
+	add 	$a1, $s0, FUTURE_BOARD_OFFSET
+	move 	$a2, $s4
+	jal 	copy_mem							# copy_mem(...);
+
+	j 	solve_next_step__epilogue
+
+solve_next_step__second_loop_end:
+
+solve_next_step__third_loop_init:
+	li 	$s3, 0								# int i = 0;
+
+solve_next_step__third_loop_cond:
+	bge 	$s3, NUM_COLOURS, solve_next_step__third_loop_end		# for (int i = 0; ...)
+
+solve_next_step__third_loop_body:
+	add 	$t0, $s0, STEP_RATING_FOR_COLOUR_OFFSET
+	mul 	$t1, $s3, 8
+	add 	$t2, $t0, $t1
+	lw 	$t3, ($t2)
+
+	bgt 	$t3, $s1, solve_next_step__third_loop_new_best			# if (... > ...)
+
+	addi 	$s3, $s3, 1							# i++;
+	j 	solve_next_step__third_loop_cond
+
+solve_next_step__third_loop_new_best:
+	move 	$s2, $s3							# best_solution = i;
+	move 	$s1, $t3							# best_surface_area = ...;
+
+	addi 	$s3, $s3, 1							# i++;
+	j 	solve_next_step__third_loop_cond
+
+solve_next_step__third_loop_end:
+	add 	$t0, $s0, OPTIMAL_SOLUTION_OFFSET
+	lw 	$t1, SOLUTION_LENGTH_OFFSET($s0)
+	add 	$t2, $t0, $t1
+
+	la 	$t3, colour_selector
+	add 	$t3, $t3, $s2
+	lb 	$t4, ($t3)
+	sb 	$t4, ($t2)							# solver->... = ...[...];
+
+	lw 	$t0, SOLUTION_LENGTH_OFFSET($s0)
+	addi 	$t0, $t0, 1
+	sw 	$t0, SOLUTION_LENGTH_OFFSET($s0)				# solver->solution_length++;
+
+	move 	$a0, $s0
+	move 	$a1, $s2
+	jal 	simulate_step							# simulate_step(...);
+
+	add 	$a0, $s0, SIMULATED_BOARD_OFFSET
+	add 	$a1, $s0, FUTURE_BOARD_OFFSET
+	move 	$a2, $s4
+	jal 	copy_mem							# copy_mem(...);
+
 solve_next_step__epilogue:
-	jr	$ra
+	pop 	$s4
+	pop 	$s3
+	pop 	$s2
+	pop 	$s1
+	pop 	$s0
+	pop 	$ra
+	END
+	jr	$ra								# return;
+
+
 
 #########################################################
 ## void copy_mem(void *src, void *dst, int num_bytes); ##
@@ -2034,23 +2241,100 @@ solve_next_step__epilogue:
 copy_mem:
 	# Subset:   3
 	#
-	# Frame:    [...]   <-- FILL THESE OUT!
-	# Uses:     [...]
-	# Clobbers: [...]
+	# Frame:
+	#   - $ra, $s0, $s1, $s2
 	#
-	# Locals:           <-- FILL THIS OUT!
-	#   - ...
+	# Uses:
+	#   - $a0, $a1, $a2
+	#   - $v0
+	#   - $s0, $s1, $s2
+	#   - $t0, $t1, $t2, $t3, $t4, $t5
 	#
-	# Structure:        <-- FILL THIS OUT!
+	# Clobbers:
+	#   - $a0, $a1, $a2
+	#   - $v0
+	#   - $t0, $t1, $t2, $t3, $t4, $t5
+	#
+	# Locals:
+	#   - $s0: loop index
+	#   - $s1: number of whole words to copy
+	#   - $s2: number of remaining bytes to copy
+	#
+	# Structure:
 	#   copy_mem
-	#   -> [prologue]
-	#       -> body
-	#   -> [epilogue]
+	#   -> copy_mem__prologue
+	#   -> copy_mem__body
+	#     -> copy_mem__first_loop_init
+	#       -> copy_mem__first_loop_cond
+	#         -> copy_mem__first_loop_body
+	#       -> copy_mem__first_loop_end
+	#     -> copy_mem__second_loop_init
+	#       -> copy_mem__second_loop_cond
+	#         -> copy_mem__second_loop_body
+	#       -> copy_mem__second_loop_end
+	#   -> copy_mem__epilogue
 
 copy_mem__prologue:
+	BEGIN
+	push 	$ra
+	push 	$s0
+	push 	$s1
+	push 	$s2
+
 copy_mem__body:
+	move 	$t0, $a0				# int *src_int_ptr = (int*) src;
+	move 	$t1, $a1				# int *dst_int_ptr = (int*) dst;
+
+	div 	$s1, $a2, SIZEOF_INT
+	rem 	$s2, $a2, SIZEOF_INT
+
+copy_mem__first_loop_init:
+	li 	$s0, 0					# int i = 0;
+
+copy_mem__first_loop_cond:
+	bge 	$s0, $s1, copy_mem__first_loop_end	# for (int i = 0; i < num_bytes / SIZEOF_INT; i++)
+
+copy_mem__first_loop_body:
+	lw 	$t2, ($t0)				# *dst_int_ptr = *src_int_ptr;
+	sw 	$t2, ($t1)
+
+	addi 	$t1, $t1, 4				# dst_int_ptr++;
+	addi 	$t0, $t0, 4				# src_int_ptr++;
+
+	addi 	$s0, $s0, 1				# i++;
+	j 	copy_mem__first_loop_cond
+
+copy_mem__first_loop_end:
+	move 	$t3, $t0				# src_char_ptr = (char*) src_int_ptr;
+	move 	$t4, $t1				# dst_char_ptr = (char*) dst_int_ptr;
+
+copy_mem__second_loop_init:
+	li 	$s0, 0					# int i = 0;
+
+copy_mem__second_loop_cond:
+	bge 	$s0, $s2, copy_mem__second_loop_end	# for (int i = 0; i < num_bytes % SIZEOF_INT; i++)
+
+copy_mem__second_loop_body:
+	lb 	$t5, ($t3)				# *dst_char_ptr = *src_char_ptr;
+	sb 	$t5, ($t4)
+
+	addi 	$t4, $t4, 1				# dst_char_ptr++;
+	addi 	$t3, $t3, 1				# src_char_ptr++;
+
+	addi 	$s0, $s0, 1				# i++;
+	j 	copy_mem__second_loop_cond
+
+copy_mem__second_loop_end:
+
 copy_mem__epilogue:
-	jr	$ra
+	pop 	$s2
+	pop 	$s1
+	pop 	$s0
+	pop 	$ra
+	END
+	jr	$ra					# return;
+
+
 
 ##############
 ## PROVIDED ##
